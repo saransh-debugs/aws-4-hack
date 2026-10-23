@@ -1,0 +1,53 @@
+# Handoffs
+
+Each track codes against a **stub** that already exists in `main`, so nobody waits on anyone.
+When the real implementation lands, the stub is replaced behind the same signature.
+
+## Milestones
+
+| Milestone | Meaning                                                                    |
+| --------- | -------------------------------------------------------------------------- |
+| **M0**    | Bootstrap (this repo as pushed): contracts, fixtures, stubs, CI – **done** |
+| **M1**    | Each track's standalone demo works                                         |
+| **M2**    | Each track is feature-complete against stubs/mocks                         |
+| **M3**    | Integration: live backend + real agent + hosted app + e2e                  |
+
+## Board
+
+| ID  | Deliverable                                             | From → To                             | M0 stub        | Real by | Status            |
+| --- | ------------------------------------------------------- | ------------------------------------- | -------------- | ------- | ----------------- |
+| H1  | Shared contracts + fixtures (`@gridrisk/shared`)        | Bootstrap → All                       | real           | M0      | ✅ done           |
+| H2  | `buildScenario(name)` calm / escalation / reset         | Teammate3 → Darsh, Teammate4          | yes            | M1      | 🟡 stub delivered |
+| H3  | Engine `analyze()` + tool functions                     | Teammate3 → Saransh                   | yes            | M1      | 🟡 stub delivered |
+| H4  | `snapshots/*.json` + NWS normalizer                     | Teammate3 → Teammate4 (ingest), Darsh | fixture        | M1      | 🟡 fixture only   |
+| H5  | `runAgent(input)`                                       | Saransh → Teammate4                   | yes (template) | M2      | 🟡 stub delivered |
+| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Teammate4 → Darsh                     | placeholders   | M1      | 🟡 `.env.example` |
+| H7  | Approve endpoint + Step Functions                       | Teammate4 → Darsh                     | MSW mock       | M2      | ⬜ not started    |
+| H8  | `MockAdapter` + `DataAdapter`                           | Darsh → Teammate4 (e2e)               | interface      | M1      | 🟡 interface only |
+| H9  | Agent `toolTrace` format on alert                       | Saransh → Darsh                       | fixture        | M2      | 🟡 schema only    |
+
+Status key: ⬜ not started · 🟡 stub or partial · ✅ real and merged
+
+## Where the stubs live
+
+| ID  | Import / file                                                                            |
+| --- | ---------------------------------------------------------------------------------------- |
+| H1  | `@gridrisk/shared`, `@gridrisk/shared/fixtures`                                          |
+| H2  | `import { buildScenario } from '@gridrisk/engine'`                                       |
+| H3  | `import { analyze, correlate, checkIsolation, … } from '@gridrisk/engine'`               |
+| H4  | `ESCALATION_ENGINE_RESULT` / `ZONE_A` fixtures until `packages/engine/snapshots/` exists |
+| H5  | `import { runAgent } from '@gridrisk/agent'` (deterministic template)                    |
+| H6  | `.env.example`                                                                           |
+| H7  | MSW handlers Darsh writes from [CONTRACTS.md](CONTRACTS.md#http-api)                     |
+| H8  | `apps/web/src/data/DataAdapter.ts`                                                       |
+| H9  | `ToolTraceEntrySchema` in `@gridrisk/shared`                                             |
+
+## Protocol
+
+1. **Producer:** merge a PR that makes the handoff real behind the **same signature**. Tick the
+   Status column in this file in that PR, and `@mention` the consumer(s) in the PR description.
+2. **Consumer:** swap the stub or mock for the real thing in a **separate PR**. Example: Darsh
+   replaces the MSW approve handler with `LiveAdapter` once H7 is ✅.
+3. If the contract itself must change, follow the change policy in [CONTRACTS.md](CONTRACTS.md#change-policy)
+   first.
+4. Blocked for more than about 1 hour? Post in the team channel with the handoff ID. Keep going on the stub.

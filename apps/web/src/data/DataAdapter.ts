@@ -1,0 +1,20 @@
+import type { AlertCardData, DemoEvent, ScenarioName } from '@gridrisk/shared';
+
+/**
+ * The only way the UI talks to data (handoff H8). Two implementations:
+ *   MockAdapter – in-memory, built on @gridrisk/engine buildScenario + fixtures (Darsh, Task 2)
+ *   LiveAdapter – HTTP API from docs/CONTRACTS.md with Cognito auth (Darsh + Teammate4, Task 13)
+ * Both must pass the same contract test suite.
+ */
+export interface DataAdapter {
+  getEvents(): Promise<DemoEvent[]>;
+  getAlerts(): Promise<AlertCardData[]>;
+  /** Approve a subset of an alert's proposed actions. Resolves to the updated alert. */
+  approve(alertId: string, actionIds: string[]): Promise<AlertCardData>;
+  /** Inject a scenario's events. Resolves to the full current event list. */
+  simulate(scenario: ScenarioName): Promise<DemoEvent[]>;
+  /** Back to the calm baseline; clears alerts. */
+  reset(): Promise<void>;
+}
+
+export type DataMode = 'mock' | 'live';

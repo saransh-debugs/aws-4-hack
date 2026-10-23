@@ -1,0 +1,38 @@
+{
+  "name": "gridrisk",
+  "private": true,
+  "type": "module",
+  "description": "GridRisk – AI Emergency Operations Center copilot (hackathon monorepo)",
+  "workspaces": [
+    "packages/shared",
+    "packages/engine",
+    "packages/agent",
+    "apps/web",
+    "infra"
+  ],
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @gridrisk/web",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "4.1.12"
+  }
+}

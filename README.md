@@ -1,0 +1,50 @@
+# GridRisk – AI EOC Copilot
+
+GridRisk links separate emergency feeds (power outages, flooded roads, 911 calls) into a single
+risk, works out how much time is left, and proposes actions that **a human approves** before
+anything is dispatched. Built on AWS: Amazon Location, Bedrock, Step Functions and SNS.
+
+> Status: **M0 bootstrap**. Contracts, fixtures and stubs are in place, and every track can start now.
+
+## Quickstart
+
+```bash
+nvm use            # Node 22 (CI). Node >= 20.19 also works locally.
+npm install
+cp .env.example .env   # optional; defaults to fully offline mock mode
+npm run dev            # web app at http://localhost:5173
+npm run verify         # lint + format + typecheck + test + build (same as CI)
+```
+
+## Who does what
+
+| Person    | Start here                                                     |
+| --------- | -------------------------------------------------------------- |
+| Saransh   | [todo/saransh-agent.md](todo/saransh-agent.md)                 |
+| Darsh     | [todo/darsh-ui.md](todo/darsh-ui.md)                           |
+| Teammate3 | [todo/teammate3-data-engine.md](todo/teammate3-data-engine.md) |
+| Teammate4 | [todo/teammate4-cloud.md](todo/teammate4-cloud.md)             |
+
+Then read [docs/CONTRACTS.md](docs/CONTRACTS.md) (the frozen data shapes and API) and
+[docs/HANDOFFS.md](docs/HANDOFFS.md) (who delivers what, and which stub to use meanwhile). The full
+plan and data-source research are in [PLAN.md](PLAN.md).
+
+## Workspace map
+
+| Path              | Package            | Owner     | M0 state                                     |
+| ----------------- | ------------------ | --------- | -------------------------------------------- |
+| `packages/shared` | `@gridrisk/shared` | everyone  | **Real** zod contracts + Houston fixtures    |
+| `packages/engine` | `@gridrisk/engine` | Teammate3 | `buildScenario` + `analyze` stubs            |
+| `packages/agent`  | `@gridrisk/agent`  | Saransh   | `runAgent` stub + **real** template fallback |
+| `apps/web`        | `@gridrisk/web`    | Darsh     | Dark shell + `DataAdapter` interface         |
+| `infra`           | `@gridrisk/infra`  | Teammate4 | Empty CDK stack (nothing deployed)           |
+
+Packages export TypeScript source directly (`"exports": "./src/index.ts"`), so there is no build
+step between workspaces.
+
+## Conventions
+
+- Branches: `feat/<name>-<task>`. Open a PR to `main`. CI must be green.
+- Changes to `packages/shared` need 2 approvals (see `.github/CODEOWNERS`).
+- Dependency versions are pinned exactly (`npm install -E`).
+- Never commit `.env` or AWS credentials.

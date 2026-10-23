@@ -1,0 +1,18 @@
+{
+  "name": "@gridrisk/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Frozen cross-team contracts (zod schemas + types) and Houston fixtures. Changes need 2 approvals.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fixtures": "./src/fixtures/houston.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@gridrisk/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic risk engine + scenario builder (owner: Teammate3). M0 = stubs.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@gridrisk/shared": "0.0.0",
+    "@turf/turf": "7.4.0"
+  },
+  "devDependencies": {
+    "zod": "4.6.7"
+  }
+}

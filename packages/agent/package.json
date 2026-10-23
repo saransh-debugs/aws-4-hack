@@ -1,0 +1,20 @@
+{
+  "name": "@gridrisk/agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bedrock EOC copilot agent (owner: Saransh). M0 = deterministic template stub.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./template": "./src/template.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1156.0",
+    "@gridrisk/engine": "0.0.0",
+    "@gridrisk/shared": "0.0.0"
+  }
+}

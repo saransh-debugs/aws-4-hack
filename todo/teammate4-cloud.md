@@ -1,0 +1,100 @@
+# Teammate4 – Cloud & Integration (`infra`, `.github`)
+
+## Role & owned directories
+
+You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration.
+
+- Owns: `infra/**`, `.github/**`
+- Reads: `@gridrisk/engine` (`buildScenario`), `@gridrisk/agent` (`runAgent`), `@gridrisk/shared`
+- Test it: `npm test -w @gridrisk/infra` · Synth: `npm run synth -w @gridrisk/infra`
+- **Never** run `cdk deploy` against a shared or production account without telling the team.
+  Use a dev account or stage.
+
+## Inbound handoffs
+
+| ID  | What                       | From      | Use meanwhile                                  |
+| --- | -------------------------- | --------- | ---------------------------------------------- |
+| H2  | `buildScenario()`          | Teammate3 | ✅ stub in `@gridrisk/engine`                  |
+| H5  | `runAgent()`               | Saransh   | ✅ template stub in `@gridrisk/agent`          |
+| H4  | NWS normalizer + snapshots | Teammate3 | Fixtures; wire the ingest Lambda when it lands |
+| H8  | `MockAdapter`              | Darsh     | Needed only for the Playwright e2e (M3)        |
+
+## Outbound handoffs
+
+| ID  | What                                                                  | To    | By  |
+| --- | --------------------------------------------------------------------- | ----- | --- |
+| H6  | API URL, Cognito pool/client IDs, Location key → SSM + `.env.example` | Darsh | M1  |
+| H7  | `POST /alerts/{id}/approve` + Step Functions working                  | Darsh | M2  |
+
+## Tasks
+
+### M1
+
+- [ ] **Task 10: Core infrastructure and read API**
+  - Objective: a deployed backend that serves events.
+  - Guidance:
+    - Build it in `GridRiskStack`.
+    - **DynamoDB:**
+      - `events` table (pk `id`, stream `NEW_IMAGE`)
+      - `alerts` table (pk `id`)
+    - **HTTP API:** a Cognito user pool and a **JWT authorizer on every route**.
+    - **Lambdas** (Node 22, esbuild bundling via `NodejsFunction`):
+      - `GET /events`
+      - `GET /alerts`
+      - `POST /simulate/{scenario}` (writes `buildScenario(...)`)
+      - `POST /simulate/reset`
+    - Responses and errors follow `docs/CONTRACTS.md`.
+    - **Amazon Location:** an API key restricted to the web app's referrers, plus a route calculator for the stretch goal.
+    - **CORS:** the web origin only.
+    - Publish H6 values to SSM Parameter Store and document them in `.env.example`.
+  - Tests:
+    - CDK assertions: 2 tables, the authorizer is attached to every route, the stream is enabled.
+    - Handler unit tests with `aws-sdk-client-mock` for DynamoDB.
+  - Demo: `cdk deploy` to the dev account. An authenticated `curl` to `/events` returns the calm events, and `/simulate/escalation` adds the escalation set.
+
+### M2
+
+- [ ] **Task 11: Human-approval workflow**
+  - Objective: an alert is created, waits for a human, and the dispatch is real.
+  - Guidance:
+    - **Trigger:** the `events` stream invokes a Lambda that starts the state machine once per zone (debounced: skip if a pending or dispatched alert already exists for the zone).
+    - **States:**
+      1. `RunAgent`: calls `runAgent`; the stub is fine.
+      2. `SaveAlert`.
+      3. `WaitForApproval`: `.waitForTaskToken`, with the token stored on the alert record and a 1 h timeout.
+      4. `Dispatch` (parallel):
+         - SNS publish to an email subscription or a verified SMS number (new accounts are in the SMS sandbox)
+         - set the shelter to `active`
+         - write a drone mission record
+      5. `MarkDispatched`.
+    - **`POST /alerts/{id}/approve`:** validates `actionIds` and calls `SendTaskSuccess`. Returns **404** for an unknown alert and **409** if the alert is already approved or dispatched.
+  - Tests: state machine definition assertions; approve handler tests (200/400/404/409).
+  - Demo: `curl` simulate escalation, and a pending alert appears in `/alerts`. `curl` approve, the SNS email arrives, and the alert shows `dispatched`.
+- [ ] **Task 12 (infrastructure)**
+  - EventBridge Scheduler runs every 5 min and invokes the ingest Lambda (Teammate3's handler).
+  - Use least-privilege IAM.
+
+### M3
+
+- [ ] **Task 14** (with Saransh): replace the stub in `RunAgent` with the real agent.
+  - Grant `bedrock:InvokeModel` scoped to the single model.
+  - 30 s timeout.
+- [ ] **Task 15: Hosting and CI/CD**
+  - Amplify Hosting, or S3 + CloudFront with OAC.
+  - A Playwright e2e test in mock mode: calm → simulate → alert → approve → dispatched. Runs in CI.
+  - A deploy job on merge to `main`, using GitHub OIDC (no long-lived AWS keys).
+- [ ] **Task 16: Hardening** (all)
+  - A hidden Shift+R reset that calls `/simulate/reset` or resets the mock store.
+  - Check that it works offline: no Location key, no network, no Bedrock.
+  - Write the README runbook: setup, env vars, deploy, demo mode.
+  - Do 5 reset → simulate → approve runs in a row, in both mock and live mode.
+
+## Branch naming
+
+`feat/teammate4-<task>`, e.g. `feat/teammate4-task10-core-infra`.
+
+## Definition of done
+
+- Tests are green in CI, and `cdk synth` is clean.
+- The demo (curl transcript, or a screenshot of the SNS email) is in the PR description.
+- `docs/HANDOFFS.md` H6/H7 status is updated, and Darsh is @mentioned.
