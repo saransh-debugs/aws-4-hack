@@ -1,4 +1,4 @@
-# Teammate4 – Cloud & Integration (`infra`, `.github`)
+# Darsh – Cloud & Integration (`infra`, `.github`)
 
 ## Role & owned directories
 
@@ -12,19 +12,19 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
 
 ## Inbound handoffs
 
-| ID  | What                       | From      | Use meanwhile                                  |
-| --- | -------------------------- | --------- | ---------------------------------------------- |
-| H2  | `buildScenario()`          | Teammate3 | ✅ stub in `@gridrisk/engine`                  |
-| H5  | `runAgent()`               | Saransh   | ✅ template stub in `@gridrisk/agent`          |
-| H4  | NWS normalizer + snapshots | Teammate3 | Fixtures; wire the ingest Lambda when it lands |
-| H8  | `MockAdapter`              | Darsh     | Needed only for the Playwright e2e (M3)        |
+| ID  | What                       | From    | Use meanwhile                                  |
+| --- | -------------------------- | ------- | ---------------------------------------------- |
+| H2  | `buildScenario()`          | Tanisha | ✅ stub in `@gridrisk/engine`                  |
+| H5  | `runAgent()`               | Saransh | ✅ template stub in `@gridrisk/agent`          |
+| H4  | NWS normalizer + snapshots | Tanisha | Fixtures; wire the ingest Lambda when it lands |
+| H8  | `MockAdapter`              | Bushra  | Needed only for the Playwright e2e (M3)        |
 
 ## Outbound handoffs
 
-| ID  | What                                                                  | To    | By  |
-| --- | --------------------------------------------------------------------- | ----- | --- |
-| H6  | API URL, Cognito pool/client IDs, Location key → SSM + `.env.example` | Darsh | M1  |
-| H7  | `POST /alerts/{id}/approve` + Step Functions working                  | Darsh | M2  |
+| ID  | What                                                                  | To     | By  |
+| --- | --------------------------------------------------------------------- | ------ | --- |
+| H6  | API URL, Cognito pool/client IDs, Location key → SSM + `.env.example` | Bushra | M1  |
+| H7  | `POST /alerts/{id}/approve` + Step Functions working                  | Bushra | M2  |
 
 ## Tasks
 
@@ -71,7 +71,7 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
   - Tests: state machine definition assertions; approve handler tests (200/400/404/409).
   - Demo: `curl` simulate escalation, and a pending alert appears in `/alerts`. `curl` approve, the SNS email arrives, and the alert shows `dispatched`.
 - [ ] **Task 12 (infrastructure)**
-  - EventBridge Scheduler runs every 5 min and invokes the ingest Lambda (Teammate3's handler).
+  - EventBridge Scheduler runs every 5 min and invokes the ingest Lambda (Tanisha's handler).
   - Use least-privilege IAM.
 
 ### M3
@@ -91,10 +91,10 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
 
 ## Branch naming
 
-`feat/teammate4-<task>`, e.g. `feat/teammate4-task10-core-infra`.
+`feat/darsh-<task>`, e.g. `feat/darsh-task10-core-infra`.
 
 ## Definition of done
 
 - Tests are green in CI, and `cdk synth` is clean.
 - The demo (curl transcript, or a screenshot of the SNS email) is in the PR description.
-- `docs/HANDOFFS.md` H6/H7 status is updated, and Darsh is @mentioned.
+- `docs/HANDOFFS.md` H6/H7 status is updated, and Bushra is @mentioned.

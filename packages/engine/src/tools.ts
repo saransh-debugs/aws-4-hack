@@ -22,7 +22,7 @@ export interface IsolationResult {
  * Weather events are context only and are not grouped.
  */
 export function correlate(events: DemoEvent[], zones: Zone[]): ZoneCorrelation[] {
-  // TODO(Teammate3): real implementation – point-in-polygon (Turf) instead of trusting event.zoneId,
+  // TODO(Tanisha): real implementation – point-in-polygon (Turf) instead of trusting event.zoneId,
   // and closures that intersect a zone's access roads instead of zoneId.
   return zones
     .map((zone) => {
@@ -41,7 +41,7 @@ export function correlate(events: DemoEvent[], zones: Zone[]): ZoneCorrelation[]
 
 /** A zone is isolated when every one of its access roads is closed. */
 export function checkIsolation(zone: Zone, closureEvents: DemoEvent[]): IsolationResult {
-  // TODO(Teammate3): real implementation – map each closure to the road segment it sits on
+  // TODO(Tanisha): real implementation – map each closure to the road segment it sits on
   // (Turf nearestPointOnLine / buffer). Stub: any high/critical closure tagged to the zone
   // closes all of its access roads. Stretch: Amazon Location Routes avoid-area check.
   const closesAccess = closureEvents.some(
@@ -57,7 +57,7 @@ export function checkIsolation(zone: Zone, closureEvents: DemoEvent[]): Isolatio
 
 /** Electricity-dependent Medicare beneficiaries in the zone (HHS emPOWER, by ZIP). */
 export function dependentPatients(zone: Zone): number {
-  // TODO(Teammate3): real implementation – sum snapshots/empower.json over zone.zips.
+  // TODO(Tanisha): real implementation – sum snapshots/empower.json over zone.zips.
   return zone.id === 'zone-a' ? 340 : 0;
 }
 
@@ -73,7 +73,7 @@ export function computeIsolationWindow(
 
 /** Shelters that can take evacuees from the zone, best first. */
 export function findShelters(_zone: Zone, shelters: Shelter[]): Shelter[] {
-  // TODO(Teammate3): real implementation – exclude shelters inside the zone, sort by distance,
+  // TODO(Tanisha): real implementation – exclude shelters inside the zone, sort by distance,
   // require remaining capacity.
   return shelters.filter((s) => s.capacity > 0);
 }

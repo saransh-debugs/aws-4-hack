@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "AWS CDK app (owner: Teammate4). M0 = empty stack; nothing is deployed.",
+  "description": "AWS CDK app (owner: Darsh). M0 = empty stack; nothing is deployed.",
   "scripts": {
     "synth": "cdk synth",
     "diff": "cdk diff",

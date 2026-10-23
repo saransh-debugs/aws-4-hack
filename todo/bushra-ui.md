@@ -1,4 +1,4 @@
-# Darsh – UI (`apps/web`)
+# Bushra – UI (`apps/web`)
 
 ## Role & owned directories
 
@@ -13,16 +13,16 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
 | ID  | What                               | From      | Use meanwhile                                                 |
 | --- | ---------------------------------- | --------- | ------------------------------------------------------------- |
 | H1  | Contracts + fixtures               | Bootstrap | ✅ already real                                               |
-| H2  | `buildScenario()`                  | Teammate3 | ✅ stub in `@gridrisk/engine` (returns fixtures)              |
-| H6  | API URL, Cognito IDs, Location key | Teammate4 | `.env.example`. Leave the key empty to use the offline style. |
-| H7  | Approve API + Step Functions       | Teammate4 | MSW handlers you write from `docs/CONTRACTS.md`               |
+| H2  | `buildScenario()`                  | Tanisha   | ✅ stub in `@gridrisk/engine` (returns fixtures)              |
+| H6  | API URL, Cognito IDs, Location key | Darsh     | `.env.example`. Leave the key empty to use the offline style. |
+| H7  | Approve API + Step Functions       | Darsh     | MSW handlers you write from `docs/CONTRACTS.md`               |
 | H9  | `toolTrace` on alerts              | Saransh   | `ToolTraceEntrySchema`; hand-write a fixture trace            |
 
 ## Outbound handoffs (what you owe)
 
-| ID  | What                                     | To              | By  |
-| --- | ---------------------------------------- | --------------- | --- |
-| H8  | `MockAdapter` implementing `DataAdapter` | Teammate4 (e2e) | M1  |
+| ID  | What                                     | To          | By  |
+| --- | ---------------------------------------- | ----------- | --- |
+| H8  | `MockAdapter` implementing `DataAdapter` | Darsh (e2e) | M1  |
 
 ## Tasks
 
@@ -83,7 +83,7 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
 
 ### M3
 
-- [ ] **Task 13b: Real API and auth** (with Teammate4)
+- [ ] **Task 13b: Real API and auth** (with Darsh)
   - Objective: the UI runs against the deployed backend.
   - Guidance:
     - Point `LiveAdapter` at the real API and poll `/events` and `/alerts` every 3 s.
@@ -103,7 +103,7 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
 
 ## Branch naming
 
-`feat/darsh-<task>`, e.g. `feat/darsh-task2-shell`, `feat/darsh-task5-alertcard`.
+`feat/bushra-<task>`, e.g. `feat/bushra-task2-shell`, `feat/bushra-task5-alertcard`.
 
 ## Definition of done
 

@@ -4,7 +4,7 @@ import type { Construct } from 'constructs';
 /**
  * GridRisk backend. M0: intentionally empty.
  *
- * TODO(Teammate4), see todo/teammate4-cloud.md:
+ * TODO(Darsh), see todo/darsh-cloud.md:
  *  Task 10 – DynamoDB (events w/ stream, alerts), HTTP API + Cognito JWT authorizer on ALL routes,
  *            Lambdas for /events /alerts /simulate/{scenario} /simulate/reset,
  *            Amazon Location API key (referrer-restricted), CORS limited to the web origin.

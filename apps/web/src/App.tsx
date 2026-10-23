@@ -1,6 +1,6 @@
 /**
- * M0 shell. TODO(Darsh): Task 2 (store + MockAdapter + dev toolbar), Task 3 (MapComponent),
- * Task 4 (EventFeed), Task 5 (AlertCard). See todo/darsh-ui.md.
+ * M0 shell. TODO(Bushra): Task 2 (store + MockAdapter + dev toolbar), Task 3 (MapComponent),
+ * Task 4 (EventFeed), Task 5 (AlertCard). See todo/bushra-ui.md.
  */
 export function App() {
   return (
@@ -15,13 +15,13 @@ export function App() {
 
       <main className="grid min-h-0 flex-1 grid-cols-[18rem_1fr_22rem]">
         <aside aria-label="Event feed" className="border-r border-slate-700 p-4">
-          <p className="text-sm text-slate-300">Event feed – TODO(Darsh): EventFeed (Task 4)</p>
+          <p className="text-sm text-slate-300">Event feed – TODO(Bushra): EventFeed (Task 4)</p>
         </aside>
         <section aria-label="Map" className="flex items-center justify-center">
-          <p className="text-sm text-slate-300">Map – TODO(Darsh): MapComponent (Task 3)</p>
+          <p className="text-sm text-slate-300">Map – TODO(Bushra): MapComponent (Task 3)</p>
         </section>
         <aside aria-label="Alerts" className="border-l border-slate-700 p-4">
-          <p className="text-sm text-slate-300">Alerts – TODO(Darsh): AlertCard (Task 5)</p>
+          <p className="text-sm text-slate-300">Alerts – TODO(Bushra): AlertCard (Task 5)</p>
         </aside>
       </main>
     </div>

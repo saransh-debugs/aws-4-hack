@@ -14,14 +14,14 @@ alert with actions. It never acts on its own.
 | ID  | What                       | From      | Use meanwhile                                                    |
 | --- | -------------------------- | --------- | ---------------------------------------------------------------- |
 | H1  | Contracts + fixtures       | Bootstrap | ✅ already real                                                  |
-| H3  | Engine `analyze()` + tools | Teammate3 | ✅ stubs in `@gridrisk/engine`; same signatures, fixture results |
+| H3  | Engine `analyze()` + tools | Tanisha   | ✅ stubs in `@gridrisk/engine`; same signatures, fixture results |
 
 ## Outbound handoffs
 
-| ID  | What                                   | To        | By                                         |
-| --- | -------------------------------------- | --------- | ------------------------------------------ |
-| H5  | `runAgent(input)` (Bedrock + fallback) | Teammate4 | M2 (the template stub is already exported) |
-| H9  | `toolTrace` populated on alerts        | Darsh     | M2                                         |
+| ID  | What                                   | To     | By                                         |
+| --- | -------------------------------------- | ------ | ------------------------------------------ |
+| H5  | `runAgent(input)` (Bedrock + fallback) | Darsh  | M2 (the template stub is already exported) |
+| H9  | `toolTrace` populated on alerts        | Bushra | M2                                         |
 
 ## Tasks
 
@@ -36,7 +36,7 @@ alert with actions. It never acts on its own.
     - In `src/tools.ts`, map each name in `TOOL_NAMES` to an engine function.
     - Generate the `submit_alert` input schema from `AlertCardDataSchema` with `z.toJSONSchema`.
     - Stop the loop at `submit_alert` or after `BEDROCK_DEFAULTS.maxTurns` (8).
-    - Keep the `runAgent` signature unchanged; Teammate4 depends on it.
+    - Keep the `runAgent` signature unchanged; Darsh depends on it.
   - Tests:
     - Use `aws-sdk-client-mock` to script tool-call sequences.
     - The final output parses.
@@ -62,7 +62,7 @@ alert with actions. It never acts on its own.
     | full escalation       | an alert          |
     | bridge reopened       | no isolation      |
 
-    Ask Teammate3 for `partial` and `reopened` scenarios, or build them from the fixtures.
+    Ask Tanisha for `partial` and `reopened` scenarios, or build them from the fixtures.
 
   - Tests:
     - The validator catches made-up numbers.
@@ -73,7 +73,7 @@ alert with actions. It never acts on its own.
 
 ### M3
 
-- [ ] **Task 14: RunAgent Lambda** (with Teammate4)
+- [ ] **Task 14: RunAgent Lambda** (with Darsh)
   - Objective: alert text comes from Bedrock, grounded by the engine, inside Step Functions.
   - Guidance:
     - A Lambda handler wraps `runAgent`.

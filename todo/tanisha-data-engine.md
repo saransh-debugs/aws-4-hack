@@ -1,4 +1,4 @@
-# Teammate3 – Data & Risk Engine (`packages/engine`)
+# Tanisha – Data & Risk Engine (`packages/engine`)
 
 ## Role & owned directories
 
@@ -19,11 +19,11 @@ Nothing else blocks you, so you can start immediately.
 
 ## Outbound handoffs
 
-| ID  | What                                      | To                        | By             |
-| --- | ----------------------------------------- | ------------------------- | -------------- |
-| H2  | `buildScenario()` (calm/escalation/reset) | Darsh, Teammate4          | M1 – **first** |
-| H3  | Real `analyze()` + tool functions         | Saransh                   | M1             |
-| H4  | `snapshots/*.json` + NWS normalizer       | Teammate4 (ingest), Darsh | M1             |
+| ID  | What                                      | To                     | By             |
+| --- | ----------------------------------------- | ---------------------- | -------------- |
+| H2  | `buildScenario()` (calm/escalation/reset) | Bushra, Darsh          | M1 – **first** |
+| H3  | Real `analyze()` + tool functions         | Saransh                | M1             |
+| H4  | `snapshots/*.json` + NWS normalizer       | Darsh (ingest), Bushra | M1             |
 
 **Don't change the exported signatures.** Every consumer is already coded against them
 (see `docs/CONTRACTS.md#engine-gridriskengine`).
@@ -62,7 +62,7 @@ Nothing else blocks you, so you can start immediately.
 - [ ] **Task 7: Real deterministic engine**
   - Objective: the agent's tools are reproducible functions, so the model never makes up numbers.
   - Guidance:
-    - Replace each `TODO(Teammate3)` in `src/tools.ts`:
+    - Replace each `TODO(Tanisha)` in `src/tools.ts`:
       - `correlate`: point-in-polygon with Turf instead of trusting `zoneId`; a closure counts when it is within about 50 m of an access road.
       - `checkIsolation`: isolated when all `accessRoadIds` are closed. Keep it behind the same signature so an Amazon Location Routes check can replace it later.
       - `dependentPatients`: sum `snapshots/empower.json` over `zone.zips`; fall back to 340 for Zone A if the snapshot is missing.
@@ -82,7 +82,7 @@ Nothing else blocks you, so you can start immediately.
 
 ### M2
 
-- [ ] **Task 12: Scheduled ingest handler** (Teammate4 owns the infra)
+- [ ] **Task 12: Scheduled ingest handler** (Darsh owns the infra)
   - Objective: real NWS alerts flow into the live feed.
   - Guidance:
     - Add `src/ingest/handler.ts`, a Lambda handler that runs the NWS normalizer and upserts into DynamoDB by event `id`, so repeated runs don't create duplicates.
@@ -97,10 +97,10 @@ Nothing else blocks you, so you can start immediately.
 
 ## Branch naming
 
-`feat/teammate3-<task>`, e.g. `feat/teammate3-task7-engine`.
+`feat/tanisha-<task>`, e.g. `feat/tanisha-task7-engine`.
 
 ## Definition of done
 
 - Tests are green in CI.
 - The demo (CLI output) is in the PR description.
-- `docs/HANDOFFS.md` H2/H3/H4 status is updated, and Saransh, Darsh and Teammate4 are @mentioned.
+- `docs/HANDOFFS.md` H2/H3/H4 status is updated, and Saransh, Bushra and Darsh are @mentioned.

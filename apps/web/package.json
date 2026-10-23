@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "GridRisk EOC dashboard (owner: Darsh).",
+  "description": "GridRisk EOC dashboard (owner: Bushra).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

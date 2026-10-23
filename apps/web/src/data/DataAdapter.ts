@@ -2,8 +2,8 @@ import type { AlertCardData, DemoEvent, ScenarioName } from '@gridrisk/shared';
 
 /**
  * The only way the UI talks to data (handoff H8). Two implementations:
- *   MockAdapter – in-memory, built on @gridrisk/engine buildScenario + fixtures (Darsh, Task 2)
- *   LiveAdapter – HTTP API from docs/CONTRACTS.md with Cognito auth (Darsh + Teammate4, Task 13)
+ *   MockAdapter – in-memory, built on @gridrisk/engine buildScenario + fixtures (Bushra, Task 2)
+ *   LiveAdapter – HTTP API from docs/CONTRACTS.md with Cognito auth (Bushra + Darsh, Task 13)
  * Both must pass the same contract test suite.
  */
 export interface DataAdapter {

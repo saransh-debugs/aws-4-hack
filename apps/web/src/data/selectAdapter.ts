@@ -18,7 +18,7 @@ export function parseDataMode(value: string | undefined): DataMode {
 
 /**
  * Picks the adapter from VITE_DATA_MODE (default: mock).
- * TODO(Darsh): return new MockAdapter() (Task 2) / new LiveAdapter(...) (Task 13).
+ * TODO(Bushra): return new MockAdapter() (Task 2) / new LiveAdapter(...) (Task 13).
  */
 export function selectAdapter(
   mode: DataMode = parseDataMode(import.meta.env.VITE_DATA_MODE),

@@ -1,9 +1,9 @@
-# Ownership. Replace the placeholder handles (DARSH_HANDLE, TEAMMATE3_HANDLE, TEAMMATE4_HANDLE).
+# Ownership. Replace the placeholder handles (BUSHRA_HANDLE, TANISHA_HANDLE, DARSH_HANDLE).
 # Shared contracts list everyone; enable "Require review from Code Owners" and 2 approvals
 # in branch protection for main.
 /packages/agent/   @saransh-debugs
-/apps/web/         @DARSH_HANDLE
-/packages/engine/  @TEAMMATE3_HANDLE
-/infra/            @TEAMMATE4_HANDLE
-/.github/          @TEAMMATE4_HANDLE
-/packages/shared/  @saransh-debugs @DARSH_HANDLE @TEAMMATE3_HANDLE @TEAMMATE4_HANDLE
+/apps/web/         @BUSHRA_HANDLE
+/packages/engine/  @TANISHA_HANDLE
+/infra/            @DARSH_HANDLE
+/.github/          @DARSH_HANDLE
+/packages/shared/  @saransh-debugs @BUSHRA_HANDLE @TANISHA_HANDLE @DARSH_HANDLE

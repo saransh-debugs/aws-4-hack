@@ -7,7 +7,7 @@ import { CALM_EVENTS, ESCALATION_EVENTS } from '@gridrisk/shared/fixtures';
  *   escalation -> calm + escalation events
  * "Reset" is simply buildScenario('calm').
  *
- * TODO(Teammate3): add more scenarios (partial, bridge reopened) for the agent evals.
+ * TODO(Tanisha): add more scenarios (partial, bridge reopened) for the agent evals.
  */
 export function buildScenario(name: ScenarioName): DemoEvent[] {
   switch (name) {

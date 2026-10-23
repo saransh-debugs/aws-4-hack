@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Deterministic risk engine + scenario builder (owner: Teammate3). M0 = stubs.",
+  "description": "Deterministic risk engine + scenario builder (owner: Tanisha). M0 = stubs.",
   "exports": {
     ".": "./src/index.ts"
   },

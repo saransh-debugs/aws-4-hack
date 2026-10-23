@@ -27,13 +27,13 @@ The scripted 60-second, 3-act demo is **out of scope for now**. The hooks for it
 
 ## Team
 
-| Person    | Track          | Owns                            | TODO                                                           |
-| --------- | -------------- | ------------------------------- | -------------------------------------------------------------- |
-| Saransh   | Agent          | `packages/agent`                | [todo/saransh-agent.md](todo/saransh-agent.md)                 |
-| Darsh     | UI             | `apps/web`                      | [todo/darsh-ui.md](todo/darsh-ui.md)                           |
-| Teammate3 | Data & engine  | `packages/engine`               | [todo/teammate3-data-engine.md](todo/teammate3-data-engine.md) |
-| Teammate4 | Cloud & integ. | `infra`, `.github`              | [todo/teammate4-cloud.md](todo/teammate4-cloud.md)             |
-| Everyone  | Contracts      | `packages/shared` (2 approvals) | [docs/CONTRACTS.md](docs/CONTRACTS.md)                         |
+| Person   | Track          | Owns                            | TODO                                                       |
+| -------- | -------------- | ------------------------------- | ---------------------------------------------------------- |
+| Saransh  | Agent          | `packages/agent`                | [todo/saransh-agent.md](todo/saransh-agent.md)             |
+| Bushra   | UI             | `apps/web`                      | [todo/bushra-ui.md](todo/bushra-ui.md)                     |
+| Tanisha  | Data & engine  | `packages/engine`               | [todo/tanisha-data-engine.md](todo/tanisha-data-engine.md) |
+| Darsh    | Cloud & integ. | `infra`, `.github`              | [todo/darsh-cloud.md](todo/darsh-cloud.md)                 |
+| Everyone | Contracts      | `packages/shared` (2 approvals) | [docs/CONTRACTS.md](docs/CONTRACTS.md)                     |
 
 ## Data sources (research summary)
 
@@ -67,7 +67,7 @@ The scripted 60-second, 3-act demo is **out of scope for now**. The hooks for it
 
 ```mermaid
 flowchart LR
-  subgraph T3[Teammate3: Data & Engine]
+  subgraph T3[Tanisha: Data & Engine]
     MOCK[Mock scenarios] --> NORM[Normalizers]
     REAL[NWS + emPOWER snapshot] --> NORM
     ENG[Risk engine]
@@ -76,12 +76,12 @@ flowchart LR
     AG[Bedrock tool-use loop] -->|tools| ENG
     AG --> VAL[Validator + template fallback]
   end
-  subgraph T4[Teammate4: Cloud]
+  subgraph T4[Darsh: Cloud]
     API[HTTP API + Cognito] --> DDB[(DynamoDB)]
     SFN[Step Functions: Agent → Save → WaitForApproval → Dispatch] --> SNS[SNS]
     SCHED[EventBridge Scheduler] --> NORM
   end
-  subgraph D[Darsh: UI]
+  subgraph D[Bushra: UI]
     WEB[React app] --> ADP{DataAdapter}
   end
   ADP -->|mock| MOCK
@@ -92,31 +92,31 @@ flowchart LR
 
 ## Tasks
 
-| #   | Task                                                                     | Owner                 | Milestone |
-| --- | ------------------------------------------------------------------------ | --------------------- | --------- |
-| 1   | Monorepo scaffold, shared contracts, stubs, CI                           | Bootstrap (**done**)  | M0        |
-| 2   | App shell, theme, Zustand store, MockAdapter, dev toolbar                | Darsh                 | M1        |
-| 3   | MapComponent (Amazon Location dark map style + offline fallback)         | Darsh                 | M1        |
-| 4   | EventFeed                                                                | Darsh                 | M1        |
-| 5   | AlertCard, countdown, approve states, connecting lines, dispatch visuals | Darsh                 | M2        |
-| 6   | Normalizers (NWS, emPOWER), snapshots, scenarios                         | Teammate3             | M1        |
-| 7   | Deterministic risk engine (Turf.js)                                      | Teammate3             | M1        |
-| 8   | Agent core: Bedrock Converse tool loop                                   | Saransh               | M1        |
-| 9   | Grounding validator, template fallback, evals                            | Saransh               | M2        |
-| 10  | Core infra: DynamoDB, HTTP API + Cognito, read/simulate Lambdas          | Teammate4             | M1        |
-| 11  | Step Functions human approval + SNS dispatch                             | Teammate4             | M2        |
-| 12  | Scheduled real-data ingest                                               | Teammate3 + Teammate4 | M2        |
-| 13  | LiveAdapter + Cognito sign-in in web                                     | Darsh + Teammate4     | M2/M3     |
-| 14  | Real agent in RunAgent Lambda                                            | Saransh + Teammate4   | M3        |
-| 15  | Hosting, Playwright e2e, CI/CD                                           | Teammate4             | M3        |
-| 16  | Hardening: reset hook, offline check, runbook, 5× reliability run        | All                   | M3        |
+| #   | Task                                                                     | Owner                | Milestone |
+| --- | ------------------------------------------------------------------------ | -------------------- | --------- |
+| 1   | Monorepo scaffold, shared contracts, stubs, CI                           | Bootstrap (**done**) | M0        |
+| 2   | App shell, theme, Zustand store, MockAdapter, dev toolbar                | Bushra               | M1        |
+| 3   | MapComponent (Amazon Location dark map style + offline fallback)         | Bushra               | M1        |
+| 4   | EventFeed                                                                | Bushra               | M1        |
+| 5   | AlertCard, countdown, approve states, connecting lines, dispatch visuals | Bushra               | M2        |
+| 6   | Normalizers (NWS, emPOWER), snapshots, scenarios                         | Tanisha              | M1        |
+| 7   | Deterministic risk engine (Turf.js)                                      | Tanisha              | M1        |
+| 8   | Agent core: Bedrock Converse tool loop                                   | Saransh              | M1        |
+| 9   | Grounding validator, template fallback, evals                            | Saransh              | M2        |
+| 10  | Core infra: DynamoDB, HTTP API + Cognito, read/simulate Lambdas          | Darsh                | M1        |
+| 11  | Step Functions human approval + SNS dispatch                             | Darsh                | M2        |
+| 12  | Scheduled real-data ingest                                               | Tanisha + Darsh      | M2        |
+| 13  | LiveAdapter + Cognito sign-in in web                                     | Bushra + Darsh       | M2/M3     |
+| 14  | Real agent in RunAgent Lambda                                            | Saransh + Darsh      | M3        |
+| 15  | Hosting, Playwright e2e, CI/CD                                           | Darsh                | M3        |
+| 16  | Hardening: reset hook, offline check, runbook, 5× reliability run        | All                  | M3        |
 
 **Sequencing.** Task 1 was done at bootstrap. The tracks then run in parallel:
 
-- Darsh: 2 → 5
-- Teammate3: 6 → 7 → 12
+- Bushra: 2 → 5
+- Tanisha: 6 → 7 → 12
 - Saransh: 8 → 9
-- Teammate4: 10 → 11
+- Darsh: 10 → 11
 
 Integration comes last: 13 → 14 → 15 → 16. Handoffs and stubs are listed in [docs/HANDOFFS.md](docs/HANDOFFS.md).
 
