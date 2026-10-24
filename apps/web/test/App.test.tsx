@@ -4,6 +4,7 @@ import { App } from '../src/App';
 import { apiBaseUrl, parseDataMode, selectAdapter } from '../src/data/selectAdapter';
 import { LiveAdapter } from '../src/data/LiveAdapter';
 import { MockAdapter } from '../src/data/MockAdapter';
+import { DEMO_SCENARIOS } from '../src/components/DevToolbar';
 import { useGridStore } from '../src/store';
 
 // maplibre-gl needs WebGL, which jsdom doesn't have.
@@ -55,6 +56,24 @@ describe('App shell', () => {
     await waitFor(() => expect(summary.textContent).toContain('45 min'));
     expect(summary.textContent).toContain('Critical1');
     expect(summary.textContent).toContain('Pending alerts1');
+  });
+
+  it('the scenario picker defaults to Zone A and can run every demo scenario', async () => {
+    render(<App adapter={new MockAdapter()} />);
+    const picker = screen.getByRole('combobox', { name: 'Scenario' }) as HTMLSelectElement;
+    expect(picker.value).toBe('escalation');
+    expect(Array.from(picker.options).map((o) => o.value)).toEqual(
+      DEMO_SCENARIOS.map((s) => s.name),
+    );
+
+    fireEvent.change(picker, { target: { value: 'multi-zone' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
+    expect(await screen.findByRole('article', { name: /ZONE A ISOLATED/ })).toBeTruthy();
+    expect(await screen.findByRole('article', { name: /ZONE B ISOLATED/ })).toBeTruthy();
+
+    fireEvent.change(picker, { target: { value: 'reopened' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
+    expect(await screen.findByText('No active alerts.')).toBeTruthy();
   });
 
   it('Reset returns to calm and clears alerts', async () => {

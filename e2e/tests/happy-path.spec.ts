@@ -83,3 +83,34 @@ test.describe('demo loop', () => {
     await expect(eventItems(page)).toHaveCount(CALM_EVENT_COUNT);
   });
 });
+
+test.describe('demo scenarios', () => {
+  test.skip(!UI_READY, 'Needs the AlertCard UI.');
+
+  test('scenario picker: outage only -> Zone A -> both zones -> storm', async ({ page }) => {
+    await page.goto('/');
+    const picker = page.getByRole('combobox', { name: 'Scenario' });
+    const simulate = page.getByRole('button', { name: /^simulate$/i });
+    const anyAlert = page.getByRole('article', { name: /isolated/i });
+
+    await picker.selectOption('partial');
+    await simulate.click();
+    await expect(page.getByText(/power outage across zone a/i)).toBeVisible();
+    await expect(anyAlert).toHaveCount(0);
+
+    await picker.selectOption('escalation');
+    await simulate.click();
+    await expect(zoneAAlert(page)).toBeVisible();
+
+    await picker.selectOption('multi-zone');
+    await simulate.click();
+    await expect(anyAlert).toHaveCount(2);
+    await expect(page.getByRole('article', { name: /zone b isolated/i })).toBeVisible();
+
+    await picker.selectOption('storm');
+    await simulate.click();
+    await expect(page.getByText(/flash flood warning/i)).toBeVisible();
+    await expect(anyAlert).toHaveCount(1);
+    await expect(zoneAAlert(page)).toBeVisible();
+  });
+});

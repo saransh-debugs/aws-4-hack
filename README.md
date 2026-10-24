@@ -137,6 +137,22 @@ TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
   --query 'AuthenticationResult.IdToken' --output text)
 ```
 
+### Demo scenarios
+
+Pick one in the toolbar's Scenario menu, then click Simulate. Each scenario replaces the events
+and clears old alerts, so you can run them in any order. Shift+R (or Reset) goes back to calm.
+
+| #   | Scenario (API name)               | What happens                                                                                     | Alerts         |
+| --- | --------------------------------- | ------------------------------------------------------------------------------------------------ | -------------- |
+| 1   | Outage only (`partial`)           | Zone A loses power, but the bridge is open, so the zone isn't cut off                            | none           |
+| 2   | Zone A cut off (`escalation`)     | The Buffalo Bayou bridge floods: Zone A is isolated                                              | Zone A         |
+| 3   | Bridge reopens (`reopened`)       | The water recedes and the bridge reopens                                                         | none           |
+| 4   | Zone B cut off (`zone-b`)         | Substation trip and the Main Street route floods (211 patients, HHS)                             | Zone B         |
+| 5   | Both zones cut off (`multi-zone`) | Two isolations at once: one alert per zone, approved separately                                  | Zone A, Zone B |
+| 6   | Storm (`storm`)                   | 7 extra storm events (NWS warnings, outages, closures that don't matter) hide one real isolation | Zone A only    |
+
+Suggested story: 1 → 2 (approve) → 3 → 6 → 5. Over the API: `POST $API/simulate/<name>`.
+
 ### Demo transcript
 
 ```bash

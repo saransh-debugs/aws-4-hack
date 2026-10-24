@@ -115,6 +115,7 @@ export function createHandlers(
           return apiError(400, 'BAD_REQUEST', `Unknown scenario: ${params.scenario}`);
         }
         state.events = buildScenario(scenario.data);
+        state.alerts = []; // like the API: each scenario starts with no alerts
         raiseAlerts(state);
         return HttpResponse.json({ events: state.events });
       },

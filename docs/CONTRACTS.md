@@ -86,7 +86,8 @@ interface AlertCardData {
   toolTrace?: { tool: string; input: unknown; output: unknown }[]; // H9, agent only
 }
 
-type ScenarioName = 'calm' | 'escalation' | 'partial' | 'reopened';
+type ScenarioName =
+  'calm' | 'escalation' | 'partial' | 'reopened' | 'zone-b' | 'multi-zone' | 'storm';
 ```
 
 **Changes from the original demo prompt:**

@@ -139,7 +139,16 @@ export type AlertCardData = z.infer<typeof AlertCardDataSchema>;
 
 // ---------- Scenarios ----------
 
-export const ScenarioNameSchema = z.enum(['calm', 'escalation', 'partial', 'reopened']);
+/** Demo scenarios (see buildScenario in @gridrisk/engine for what each one contains). */
+export const ScenarioNameSchema = z.enum([
+  'calm',
+  'escalation',
+  'partial',
+  'reopened',
+  'zone-b',
+  'multi-zone',
+  'storm',
+]);
 export type ScenarioName = z.infer<typeof ScenarioNameSchema>;
 
 // ---------- API ----------

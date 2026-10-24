@@ -34,7 +34,7 @@ export function buildTemplateAlert(result: EngineResult, options: TemplateOption
   if (result.closedAccessRoadIds.length > 0) {
     points.push(
       zone.accessRoadIds.length === 1
-        ? `Storm flooding the only access bridge to ${zoneName}.`
+        ? `Storm flooding has closed the only access road into ${zoneName}.`
         : `Flooding has closed ${result.closedAccessRoadIds.length} of ${zone.accessRoadIds.length} access roads to ${zoneName}.`,
     );
   }

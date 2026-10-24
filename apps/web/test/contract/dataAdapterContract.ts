@@ -72,6 +72,20 @@ export function describeDataAdapterContract(
       expect(await adapter.getAlerts()).toHaveLength(1);
     });
 
+    it.each([
+      ['partial', []],
+      ['reopened', []],
+      ['zone-b', ['zone-b']],
+      ['multi-zone', ['zone-a', 'zone-b']],
+      ['storm', ['zone-a']],
+    ] as const)('simulate("%s") raises pending alerts for exactly %j', async (name, zones) => {
+      await adapter.simulate('escalation'); // a new scenario must clear the old alert
+      await adapter.simulate(name);
+      const alerts = (await adapter.getAlerts()).map((a) => AlertCardDataSchema.parse(a));
+      expect(alerts.map((a) => a.zoneId).sort()).toEqual([...zones]);
+      expect(alerts.every((a) => a.status === 'pending')).toBe(true);
+    });
+
     it('approve moves the alert out of pending and returns it', async () => {
       const alert = await escalate();
       const actionIds = [alert.proposedActions[0]!.id];

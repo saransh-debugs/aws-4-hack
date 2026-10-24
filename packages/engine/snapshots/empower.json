@@ -6,5 +6,9 @@
   {
     "zip": "77010",
     "electricityDependentCount": 11
+  },
+  {
+    "zip": "77004",
+    "electricityDependentCount": 211
   }
 ]

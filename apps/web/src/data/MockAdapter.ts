@@ -52,8 +52,10 @@ export class MockAdapter implements DataAdapter {
   }
 
   async simulate(scenario: ScenarioName): Promise<DemoEvent[]> {
+    // Like the API (infra/lambda/shared/scenario.ts): a new scenario replaces the events and
+    // clears the old alerts, so each scenario starts fresh.
     this.events = buildScenario(scenario);
-    if (scenario === 'calm') this.alerts = [];
+    this.alerts = [];
 
     for (const result of analyze(this.events, this.zones, { shelters: this.shelters })) {
       const zone = this.zones.find((z) => z.id === result.zoneId);
