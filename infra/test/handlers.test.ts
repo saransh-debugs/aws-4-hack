@@ -7,6 +7,7 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { SFNClient, SendTaskSuccessCommand } from '@aws-sdk/client-sfn';
+import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import type { AlertCardData, DemoEvent } from '@gridrisk/shared';
 
@@ -192,5 +193,74 @@ describe('POST /alerts/{id}/approve', () => {
     expect(parsed.alert.status).toBe('approved');
     expect(parsed.alert).not.toHaveProperty('taskToken');
     expect(sfnMock.commandCalls(SendTaskSuccessCommand)).toHaveLength(1);
+  });
+
+  // --- hardening (Saransh) ---
+
+  const approveBody = (actionIds: string[]) =>
+    authedEvent({
+      pathParameters: { id: 'alert-1' } as never,
+      body: JSON.stringify({ actionIds }),
+    });
+
+  it('409 when the alert is already approved', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: { ...PENDING_ALERT, status: 'approved' } });
+    expect((await approve(approveBody(['act-shelter']))).statusCode).toBe(409);
+  });
+
+  it('only approves a pending alert (conditional update)', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: PENDING_ALERT });
+    ddbMock.on(UpdateCommand).resolves({ Attributes: { ...PENDING_ALERT, status: 'approved' } });
+    sfnMock.on(SendTaskSuccessCommand).resolves({});
+
+    await approve(approveBody(['act-drone']));
+    const input = ddbMock.commandCalls(UpdateCommand)[0]!.args[0].input;
+    expect(input.ConditionExpression).toBe('#s = :pending');
+    expect(input.ExpressionAttributeValues).toMatchObject({ ':pending': 'pending' });
+  });
+
+  it('409 when a concurrent approval wins the race, without resuming the execution', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: PENDING_ALERT });
+    ddbMock
+      .on(UpdateCommand)
+      .rejects(new ConditionalCheckFailedException({ message: 'conditional', $metadata: {} }));
+
+    const res = await approve(approveBody(['act-shelter']));
+    expect(res.statusCode).toBe(409);
+    expect((body(res) as { error: { code: string } }).error.code).toBe('CONFLICT');
+    expect(sfnMock.commandCalls(SendTaskSuccessCommand)).toHaveLength(0);
+  });
+
+  it('rolls back to pending and returns 500 when SendTaskSuccess fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    ddbMock.on(GetCommand).resolves({ Item: PENDING_ALERT });
+    ddbMock.on(UpdateCommand).resolves({ Attributes: { ...PENDING_ALERT, status: 'approved' } });
+    sfnMock.on(SendTaskSuccessCommand).rejects(new Error('TaskTimedOut'));
+
+    const res = await approve(approveBody(['act-shelter']));
+    expect(res.statusCode).toBe(500);
+    const updates = ddbMock.commandCalls(UpdateCommand).map((c) => c.args[0].input);
+    expect(updates).toHaveLength(2);
+    expect(updates[1]?.ExpressionAttributeValues).toMatchObject({ ':pending': 'pending' });
+    expect(updates[1]?.UpdateExpression).toContain('REMOVE approvedActionIds');
+  });
+
+  it.each([
+    ['empty actionIds', [], { Item: PENDING_ALERT }],
+    ['unknown alert', ['act-shelter'], { Item: undefined }],
+    ['already dispatched', ['act-shelter'], { Item: { ...PENDING_ALERT, status: 'dispatched' } }],
+    ['unknown actionId', ['nope'], { Item: PENDING_ALERT }],
+  ])('never calls SendTaskSuccess or writes on error: %s', async (_name, actionIds, item) => {
+    ddbMock.on(GetCommand).resolves(item);
+    const res = await approve(approveBody(actionIds as string[]));
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(sfnMock.commandCalls(SendTaskSuccessCommand)).toHaveLength(0);
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
+  });
+
+  it('401 without a JWT, before touching DynamoDB', async () => {
+    const res = await approve(anonEvent());
+    expect(res.statusCode).toBe(401);
+    expect(ddbMock.commandCalls(GetCommand)).toHaveLength(0);
   });
 });
