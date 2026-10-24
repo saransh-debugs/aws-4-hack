@@ -45,12 +45,18 @@ export const DEMO_SCENARIOS: { name: ScenarioName; label: string; expect: string
 /** Dev controls for the demo: inject a scenario, or go back to calm. */
 export function DevToolbar() {
   const adapter = useAdapter();
+  const mode = useGridStore((s) => s.mode);
   const refresh = useRefresh();
   const eventCount = useGridStore((s) => s.events.length);
   const [scenario, setScenario] = useState<ScenarioName>('escalation');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selected = DEMO_SCENARIOS.find((s) => s.name === scenario);
+
+  // Simulation is available in offline mock mode and only when explicitly enabled in live mode.
+  // The backend enforces the same flag; this UI guard prevents misleading controls in production.
+  const simulationEnabled = mode === 'mock' || import.meta.env.VITE_DEMO_MODE === 'true';
+  if (!simulationEnabled) return null;
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);

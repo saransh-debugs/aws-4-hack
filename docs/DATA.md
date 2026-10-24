@@ -205,6 +205,14 @@ Those are required before live emergency decision-making.
 
 ## Current readiness
 
+### Production safety
+
+Simulation is disabled by default in deployed environments. The web toolbar only appears in
+offline mock mode or when `GRIDRISK_DEMO_MODE=true`, and the API rejects `/simulate/*` requests
+with `403` unless the same backend flag is enabled. This protects the shared events and alerts
+tables from being replaced by a demo scenario. Use a separate demo stack/account when enabling
+the flag; do not enable it for live operations.
+
 ### Complete for the grounded prototype
 
 - No 911 data is required or modeled.

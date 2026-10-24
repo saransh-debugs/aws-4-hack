@@ -170,7 +170,14 @@ export type SimulateResponse = z.infer<typeof SimulateResponseSchema>;
 
 export const ApiErrorSchema = z.object({
   error: z.object({
-    code: z.enum(['UNAUTHENTICATED', 'NOT_FOUND', 'CONFLICT', 'BAD_REQUEST', 'INTERNAL']),
+    code: z.enum([
+      'UNAUTHENTICATED',
+      'FORBIDDEN',
+      'NOT_FOUND',
+      'CONFLICT',
+      'BAD_REQUEST',
+      'INTERNAL',
+    ]),
     message: z.string(),
   }),
 });

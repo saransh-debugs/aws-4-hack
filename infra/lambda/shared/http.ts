@@ -5,10 +5,16 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 
 export type ApiErrorCode =
-  'UNAUTHENTICATED' | 'NOT_FOUND' | 'CONFLICT' | 'BAD_REQUEST' | 'INTERNAL';
+  | 'UNAUTHENTICATED'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'BAD_REQUEST'
+  | 'INTERNAL';
 
 const ERROR_STATUS: Record<ApiErrorCode, number> = {
   UNAUTHENTICATED: 401,
+  FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
   BAD_REQUEST: 400,
@@ -41,6 +47,11 @@ export function isAuthenticated(event: APIGatewayProxyEventV2): boolean {
   if (!authorizer || typeof authorizer !== 'object') return false;
   const jwt = (authorizer as { jwt?: { claims?: Record<string, unknown> } }).jwt;
   return Boolean(jwt?.claims && Object.keys(jwt.claims).length > 0);
+}
+
+/** Simulation mutates the shared demo tables and is disabled in live deployments. */
+export function isDemoMode(): boolean {
+  return process.env.GRIDRISK_DEMO_MODE === 'true';
 }
 
 /** Parse a JSON body, returning undefined when the body is empty or invalid JSON. */

@@ -8,11 +8,12 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { ScenarioNameSchema } from '@gridrisk/shared';
 import { loadScenario } from './shared/scenario';
-import { fail, isAuthenticated, ok, withErrorHandling } from './shared/http';
+import { fail, isAuthenticated, isDemoMode, ok, withErrorHandling } from './shared/http';
 
 export const handler = withErrorHandling(
   async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
     if (!isAuthenticated(event)) return fail('UNAUTHENTICATED', 'Missing or invalid token');
+    if (!isDemoMode()) return fail('FORBIDDEN', 'Simulation is disabled in this environment');
 
     // The reset route has no {scenario} path param; default it to 'calm'.
     const raw = event.pathParameters?.scenario ?? 'calm';

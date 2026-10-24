@@ -507,6 +507,7 @@ function handler(event) {
         DRIVETEXAS_API_KEY: process.env.DRIVETEXAS_API_KEY ?? '',
         GRIDRISK_ALLOW_SYNTHETIC_UTILITY: process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY ?? 'false',
         GRIDRISK_SYNTHETIC_ZONE_ID: process.env.GRIDRISK_SYNTHETIC_ZONE_ID ?? 'zone-a',
+        GRIDRISK_DEMO_MODE: process.env.GRIDRISK_DEMO_MODE ?? 'false',
       },
     });
     eventsTable.grantReadWriteData(ingestFn);
