@@ -7,7 +7,9 @@ import { useRefresh } from './data/useGridData';
 import { getValidToken, loadSession, signOut } from './auth/cognito';
 import { analyze } from '@gridrisk/engine';
 import { SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
+import { Radio, Siren } from 'lucide-react';
 import { AgentInvestigating } from './components/AgentInvestigating';
+import { SidePanel } from './components/SidePanel';
 import { AlertCard } from './components/AlertCard';
 import { useRecentArrivals } from './data/useRecentArrivals';
 import { DevToolbar } from './components/DevToolbar';
@@ -37,6 +39,8 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
   const selectEvent = useGridStore((s) => s.selectEvent);
   const [offline, setOffline] = useState(false);
   const newIds = useRecentArrivals();
+  const [feedCollapsed, setFeedCollapsed] = useState(false);
+  const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
   // Zones the engine sees as cut off whose alert hasn't arrived yet: the agent is working on them.
   const investigating = useMemo(() => {
@@ -98,18 +102,24 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
   const email = mode === 'live' ? loadSession()?.email : undefined;
 
   return (
-    <div className="flex h-full flex-col bg-surface text-ink">
-      <header className="flex items-center justify-between border-b border-slate-700 px-4 py-2">
-        <h1 className="font-mono text-sm tracking-widest">GridRisk • LIVE FEED • SYNTHETIC DATA</h1>
-        <div className="flex items-center gap-4">
+    <div className="flex h-full flex-col bg-slate-950 text-ink">
+      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-800 bg-slate-900 px-4 py-2">
+        <h1 className="flex items-baseline gap-2 font-mono tracking-widest whitespace-nowrap">
+          <span className="text-base font-bold text-slate-50">GridRisk</span>
+          <span className="text-[10px] text-slate-400"> • LIVE FEED • SYNTHETIC DATA</span>
+        </h1>
+        <StatsBar />
+        <div className="ml-auto flex flex-wrap items-center gap-3">
           <DevToolbar />
           {email && (
             <span className="flex items-center gap-2 font-mono text-xs text-slate-300">
-              <span className="text-slate-400">{email}</span>
+              <span className="max-w-[12rem] truncate text-slate-400" title={email}>
+                {email}
+              </span>
               <button
                 type="button"
                 onClick={() => onUnauthenticated()}
-                className="rounded border border-slate-600 px-2 py-0.5 text-slate-100 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+                className="rounded border border-slate-600 px-2 py-0.5 whitespace-nowrap text-slate-100 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
               >
                 Sign out
               </button>
@@ -131,42 +141,54 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
         </p>
       )}
 
-      <StatsBar />
-
-      <main className="grid min-h-0 flex-1 grid-cols-[20rem_1fr_22rem]">
-        <aside
-          aria-label="Event feed"
-          className="flex min-h-0 flex-col border-r border-slate-700 p-4"
-        >
-          <EventFeed
-            events={events}
-            newIds={newIds}
-            selectedEventId={selectedEventId}
-            onSelect={(e) => selectEvent(e.id)}
-          />
-        </aside>
-        <section aria-label="Map" className="relative min-h-0">
+      <main className="flex-1 space-y-3 overflow-y-auto p-3">
+        <section aria-label="Map" className="map-frame">
           <MapBoundary>
             <Suspense fallback={<p className="p-4 text-sm text-slate-300">Loading map…</p>}>
               <MapComponent />
             </Suspense>
           </MapBoundary>
         </section>
-        <aside
-          aria-label="Alerts"
-          className="min-h-0 space-y-3 overflow-y-auto border-l border-slate-700 p-4"
-        >
-          {investigating.map((z) => (
-            <AgentInvestigating key={`investigating-${z.id}`} zoneName={z.name} />
-          ))}
-          {alerts.length === 0 && investigating.length === 0 ? (
-            <p className="text-sm text-slate-300">No active alerts.</p>
-          ) : (
-            alerts.map((a) => (
-              <AlertCard key={a.id} alert={a} onApproved={() => void safeRefresh()} />
-            ))
-          )}
-        </aside>
+
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <SidePanel
+            label="Alerts"
+            icon={Siren}
+            count={alerts.filter((a) => a.status === 'pending').length + investigating.length}
+            alarm={alerts.some((a) => a.status === 'pending') || investigating.length > 0}
+            collapsed={alertsCollapsed}
+            onToggle={() => setAlertsCollapsed((c) => !c)}
+          >
+            <div className="space-y-3">
+              {investigating.map((z) => (
+                <AgentInvestigating key={`investigating-${z.id}`} zoneName={z.name} />
+              ))}
+              {alerts.length === 0 && investigating.length === 0 ? (
+                <p className="text-sm text-slate-300">No active alerts.</p>
+              ) : (
+                alerts.map((a) => (
+                  <AlertCard key={a.id} alert={a} onApproved={() => void safeRefresh()} />
+                ))
+              )}
+            </div>
+          </SidePanel>
+          <SidePanel
+            label="Event feed"
+            icon={Radio}
+            count={events.length}
+            alarm={events.some((e) => e.severity === 'critical')}
+            collapsed={feedCollapsed}
+            onToggle={() => setFeedCollapsed((c) => !c)}
+          >
+            <EventFeed
+              events={events}
+              newIds={newIds}
+              hideHeading
+              selectedEventId={selectedEventId}
+              onSelect={(e) => selectEvent(e.id)}
+            />
+          </SidePanel>
+        </div>
       </main>
     </div>
   );

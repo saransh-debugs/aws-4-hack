@@ -24,6 +24,8 @@ export interface EventFeedProps {
   onSelect: (event: DemoEvent) => void;
   /** Events that just arrived: highlighted with a NEW badge. */
   newIds?: ReadonlySet<string>;
+  /** Hide the built-in "Events N" heading (when a panel header already shows it). */
+  hideHeading?: boolean;
 }
 
 /** Newest first. Events without a timestamp go last; ties put the later-received event first. */
@@ -87,26 +89,34 @@ export function formatEventTime(timestamp: string | undefined): string {
   return Number.isNaN(ms) ? '--:--:--' : `${new Date(ms).toISOString().slice(11, 19)}Z`;
 }
 
-export function EventFeed({ events, selectedEventId, onSelect, newIds }: EventFeedProps) {
+export function EventFeed({
+  events,
+  selectedEventId,
+  onSelect,
+  newIds,
+  hideHeading = false,
+}: EventFeedProps) {
   const reduceMotion = useReducedMotion();
   const sorted = sortEventsNewestFirst(events);
   const criticalCount = events.filter((e) => e.severity === 'critical').length;
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-[11px] font-semibold tracking-[0.14em] text-slate-300 uppercase">
-          Events
-          <span className="ml-2 rounded-sm bg-slate-800 px-1.5 py-px font-mono text-[11px] font-medium tracking-normal text-slate-200 tabular-nums">
-            {events.length}
-          </span>
-        </h2>
-        {criticalCount > 0 && (
-          <span className="font-mono text-[11px] text-red-300 tabular-nums">
-            {criticalCount} critical
-          </span>
-        )}
-      </div>
+      {!hideHeading && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-[11px] font-semibold tracking-[0.14em] text-slate-300 uppercase">
+            Events
+            <span className="ml-2 rounded-sm bg-slate-800 px-1.5 py-px font-mono text-[11px] font-medium tracking-normal text-slate-200 tabular-nums">
+              {events.length}
+            </span>
+          </h2>
+          {criticalCount > 0 && (
+            <span className="font-mono text-[11px] text-red-300 tabular-nums">
+              {criticalCount} critical
+            </span>
+          )}
+        </div>
+      )}
 
       {sorted.length === 0 ? (
         <p className="rounded-md border border-dashed border-slate-700 px-3 py-6 text-center text-[13px] text-slate-400">

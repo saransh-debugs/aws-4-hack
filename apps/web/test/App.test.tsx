@@ -19,7 +19,7 @@ describe('App shell', () => {
   it('renders the top bar', () => {
     render(<App adapter={new MockAdapter()} />);
     expect(
-      screen.getByRole('heading', { name: 'GridRisk • LIVE FEED • SYNTHETIC DATA' }),
+      screen.getByRole('heading', { name: /GridRisk.*LIVE FEED.*SYNTHETIC DATA/ }),
     ).toBeTruthy();
   });
 
