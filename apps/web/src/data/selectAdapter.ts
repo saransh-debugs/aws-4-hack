@@ -1,17 +1,6 @@
 import type { DataAdapter, DataMode } from './DataAdapter';
 import { LiveAdapter } from './LiveAdapter';
-
-function notImplemented(mode: DataMode): DataAdapter {
-  const fail = (method: string) => () =>
-    Promise.reject(new Error(`${mode} DataAdapter.${method} not implemented`));
-  return {
-    getEvents: fail('getEvents'),
-    getAlerts: fail('getAlerts'),
-    approve: fail('approve'),
-    simulate: fail('simulate'),
-    reset: fail('reset'),
-  };
-}
+import { MockAdapter } from './MockAdapter';
 
 export function parseDataMode(value: string | undefined): DataMode {
   return value === 'live' ? 'live' : 'mock';
@@ -24,7 +13,6 @@ export function apiBaseUrl(value: string | undefined = import.meta.env.VITE_API_
 
 /**
  * Picks the adapter from VITE_DATA_MODE (default: mock).
- * TODO(Bushra): return new MockAdapter() for mock mode (Task 2).
  * TODO(Task 13b): replace the dev token with the Cognito ID token (Amplify Auth).
  */
 export function selectAdapter(
@@ -33,5 +21,5 @@ export function selectAdapter(
   if (mode === 'live') {
     return new LiveAdapter({ baseUrl: apiBaseUrl(), getToken: () => 'dev-token' });
   }
-  return notImplemented(mode);
+  return new MockAdapter();
 }
