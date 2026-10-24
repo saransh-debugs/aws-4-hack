@@ -27,7 +27,8 @@ npm run verify         # lint + format + typecheck + test + build (same as CI)
 
 Then read [docs/CONTRACTS.md](docs/CONTRACTS.md) (the frozen data shapes and API) and
 [docs/HANDOFFS.md](docs/HANDOFFS.md) (who delivers what, and which stub to use meanwhile). The full
-plan and data-source research are in [PLAN.md](PLAN.md).
+plan and data-source research are in [PLAN.md](PLAN.md). The active datasets, snapshots, and data
+engine readiness checklist are in [docs/DATA.md](docs/DATA.md).
 
 ## Workspace map
 

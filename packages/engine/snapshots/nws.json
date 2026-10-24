@@ -1,0 +1,11 @@
+[
+  {
+    "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.709e74a3696c407f637d7c77fb82c08b00d825ec.001.1",
+    "type": "weather",
+    "lat": 29.76,
+    "lon": -95.37,
+    "description": "Air Quality Alert issued October 22 at 5:16PM CDT by NWS Houston/Galveston TX",
+    "severity": "low",
+    "timestamp": "2026-10-22T17:16:00-05:00"
+  }
+]

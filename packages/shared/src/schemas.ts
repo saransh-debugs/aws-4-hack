@@ -139,7 +139,7 @@ export type AlertCardData = z.infer<typeof AlertCardDataSchema>;
 
 // ---------- Scenarios ----------
 
-export const ScenarioNameSchema = z.enum(['calm', 'escalation']);
+export const ScenarioNameSchema = z.enum(['calm', 'escalation', 'partial', 'reopened']);
 export type ScenarioName = z.infer<typeof ScenarioNameSchema>;
 
 // ---------- API ----------

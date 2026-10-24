@@ -14,17 +14,17 @@ When the real implementation lands, the stub is replaced behind the same signatu
 
 ## Board
 
-| ID  | Deliverable                                             | From → To                        | M0 stub        | Real by | Status            |
-| --- | ------------------------------------------------------- | -------------------------------- | -------------- | ------- | ----------------- |
-| H1  | Shared contracts + fixtures (`@gridrisk/shared`)        | Bootstrap → All                  | real           | M0      | ✅ done           |
-| H2  | `buildScenario(name)` calm / escalation / reset         | Tanisha → Bushra, Darsh          | yes            | M1      | 🟡 stub delivered |
-| H3  | Engine `analyze()` + tool functions                     | Tanisha → Saransh                | yes            | M1      | 🟡 stub delivered |
-| H4  | `snapshots/*.json` + NWS normalizer                     | Tanisha → Darsh (ingest), Bushra | fixture        | M1      | 🟡 fixture only   |
-| H5  | `runAgent(input)`                                       | Saransh → Darsh                  | yes (template) | M2      | 🟡 stub delivered |
-| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | 🟡 `.env.example` |
-| H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | ⬜ not started    |
-| H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | 🟡 interface only |
-| H9  | Agent `toolTrace` format on alert                       | Saransh → Bushra                 | fixture        | M2      | 🟡 schema only    |
+| ID  | Deliverable                                             | From → To                        | M0 stub        | Real by | Status                             |
+| --- | ------------------------------------------------------- | -------------------------------- | -------------- | ------- | ---------------------------------- |
+| H1  | Shared contracts + fixtures (`@gridrisk/shared`)        | Bootstrap → All                  | real           | M0      | ✅ done                            |
+| H2  | `buildScenario(name)` calm / escalation / reset         | Tanisha → Bushra, Darsh          | yes            | M1      | ✅ real + variants                 |
+| H3  | Engine `analyze()` + tool functions                     | Tanisha → Saransh                | yes            | M1      | ✅ deterministic geospatial engine |
+| H4  | `snapshots/*.json` + NWS normalizer                     | Tanisha → Darsh (ingest), Bushra | fixture        | M1      | ✅ NWS + emPOWER snapshots         |
+| H5  | `runAgent(input)`                                       | Saransh → Darsh                  | yes (template) | M2      | 🟡 stub delivered                  |
+| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | 🟡 `.env.example`                  |
+| H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | ⬜ not started                     |
+| H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | 🟡 interface only                  |
+| H9  | Agent `toolTrace` format on alert                       | Saransh → Bushra                 | fixture        | M2      | 🟡 schema only                     |
 
 Status key: ⬜ not started · 🟡 stub or partial · ✅ real and merged
 

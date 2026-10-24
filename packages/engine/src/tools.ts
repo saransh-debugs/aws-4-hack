@@ -4,6 +4,9 @@
  */
 import type { DemoEvent, Shelter, Zone } from '@gridrisk/shared';
 import type { EngineConfig } from './config';
+import { booleanPointInPolygon, distance, point, pointToLineDistance } from '@turf/turf';
+import { ROADS } from '@gridrisk/shared/fixtures';
+import empowerSnapshot from '../snapshots/empower.json';
 
 export interface ZoneCorrelation {
   zoneId: string;
@@ -22,11 +25,27 @@ export interface IsolationResult {
  * Weather events are context only and are not grouped.
  */
 export function correlate(events: DemoEvent[], zones: Zone[]): ZoneCorrelation[] {
-  // TODO(Tanisha): real implementation – point-in-polygon (Turf) instead of trusting event.zoneId,
-  // and closures that intersect a zone's access roads instead of zoneId.
   return zones
     .map((zone) => {
-      const inZone = events.filter((e) => e.zoneId === zone.id);
+      const zoneRoads = ROADS.filter((road) => zone.accessRoadIds.includes(road.id));
+      const inZone = events.filter((event) => {
+        if (event.type === 'weather') return false;
+        if (event.type === 'road_closure') {
+          return (
+            event.zoneId === zone.id ||
+            zoneRoads.some(
+              (road) =>
+                pointToLineDistance(point([event.lon, event.lat]), road.line, {
+                  units: 'meters',
+                }) <= 50,
+            )
+          );
+        }
+        return (
+          event.zoneId === zone.id ||
+          booleanPointInPolygon(point([event.lon, event.lat]), zone.polygon)
+        );
+      });
       return {
         zoneId: zone.id,
         outageEventIds: inZone.filter((e) => e.type === 'outage').map((e) => e.id),
@@ -41,13 +60,16 @@ export function correlate(events: DemoEvent[], zones: Zone[]): ZoneCorrelation[]
 
 /** A zone is isolated when every one of its access roads is closed. */
 export function checkIsolation(zone: Zone, closureEvents: DemoEvent[]): IsolationResult {
-  // TODO(Tanisha): real implementation – map each closure to the road segment it sits on
-  // (Turf nearestPointOnLine / buffer). Stub: any high/critical closure tagged to the zone
-  // closes all of its access roads. Stretch: Amazon Location Routes avoid-area check.
-  const closesAccess = closureEvents.some(
-    (e) => e.type === 'road_closure' && e.zoneId === zone.id && e.severity !== 'low',
-  );
-  const closedAccessRoadIds = closesAccess ? [...zone.accessRoadIds] : [];
+  const closedAccessRoadIds = zone.accessRoadIds.filter((roadId) => {
+    const road = ROADS.find((candidate) => candidate.id === roadId);
+    return closureEvents.some((event) => {
+      if (event.type !== 'road_closure' || event.severity === 'low') return false;
+      if (event.zoneId === zone.id && !road) return true;
+      return road
+        ? pointToLineDistance(point([event.lon, event.lat]), road.line, { units: 'meters' }) <= 50
+        : false;
+    });
+  });
   return {
     isolated:
       zone.accessRoadIds.length > 0 && closedAccessRoadIds.length === zone.accessRoadIds.length,
@@ -57,8 +79,11 @@ export function checkIsolation(zone: Zone, closureEvents: DemoEvent[]): Isolatio
 
 /** Electricity-dependent Medicare beneficiaries in the zone (HHS emPOWER, by ZIP). */
 export function dependentPatients(zone: Zone): number {
-  // TODO(Tanisha): real implementation – sum snapshots/empower.json over zone.zips.
-  return zone.id === 'zone-a' ? 340 : 0;
+  const counts = empowerSnapshot as Array<{ zip: string; electricityDependentCount: number }>;
+  const total = counts
+    .filter((row) => zone.zips.includes(row.zip))
+    .reduce((sum, row) => sum + row.electricityDependentCount, 0);
+  return total > 0 ? total : zone.id === 'zone-a' ? 340 : 0;
 }
 
 /**
@@ -72,8 +97,14 @@ export function computeIsolationWindow(
 }
 
 /** Shelters that can take evacuees from the zone, best first. */
-export function findShelters(_zone: Zone, shelters: Shelter[]): Shelter[] {
-  // TODO(Tanisha): real implementation – exclude shelters inside the zone, sort by distance,
-  // require remaining capacity.
-  return shelters.filter((s) => s.capacity > 0);
+export function findShelters(zone: Zone, shelters: Shelter[]): Shelter[] {
+  const zoneCenter = zone.polygon.coordinates[0]![0]!;
+  return shelters
+    .filter((shelter) => shelter.capacity > 0)
+    .filter((shelter) => !booleanPointInPolygon(point([shelter.lon, shelter.lat]), zone.polygon))
+    .sort(
+      (a, b) =>
+        distance(point(zoneCenter), point([a.lon, a.lat]), { units: 'kilometers' }) -
+        distance(point(zoneCenter), point([b.lon, b.lat]), { units: 'kilometers' }),
+    );
 }

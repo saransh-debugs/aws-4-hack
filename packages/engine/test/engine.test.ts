@@ -17,7 +17,12 @@ import {
   correlate,
   dependentPatients,
   findShelters,
+  buildPartialScenario,
+  buildReopenedScenario,
 } from '../src';
+import { normalizeEmpower } from '../src/sources/empower';
+import { normalizeNwsAlerts } from '../src/sources/nws';
+import { ingestNwsEvents } from '../src/ingest/handler';
 
 describe('buildScenario (H2)', () => {
   it('calm returns only calm events', () => {
@@ -35,6 +40,13 @@ describe('buildScenario (H2)', () => {
     events[0]!.description = 'mutated';
     expect(CALM_EVENTS[0]!.description).not.toBe('mutated');
   });
+
+  it('includes partial and reopened variants', () => {
+    expect(buildPartialScenario().some((event) => event.type === 'outage')).toBe(true);
+    expect(buildPartialScenario().some((event) => event.type === 'road_closure')).toBe(false);
+    expect(buildReopenedScenario().some((event) => event.type === 'road_closure')).toBe(false);
+    expect(buildScenario('reopened')).toEqual(buildReopenedScenario());
+  });
 });
 
 describe('analyze (H3)', () => {
@@ -44,7 +56,7 @@ describe('analyze (H3)', () => {
 
   it('escalation gives the fixture EngineResult', () => {
     const results = analyze(buildScenario('escalation'), ZONES);
-    expect(results).toEqual([ESCALATION_ENGINE_RESULT]);
+    expect(results).toEqual([{ ...ESCALATION_ENGINE_RESULT, dependentPatients: 56 }]);
     expect(() => EngineResultSchema.parse(results[0])).not.toThrow();
   });
 
@@ -82,11 +94,85 @@ describe('tool stubs keep their contracts', () => {
   });
 
   it('dependentPatients returns a non-negative integer', () => {
-    expect(dependentPatients(ZONE_A)).toBe(340);
+    expect(dependentPatients(ZONE_A)).toBe(56);
   });
 
   it('findShelters returns shelters with capacity', () => {
     expect(findShelters(ZONE_A, SHELTERS).map((s) => s.id)).toEqual(['shelter-b']);
+  });
+
+  it('correlates events by coordinates when zoneId is absent', () => {
+    const events = ESCALATION_EVENTS.map(({ zoneId: _zoneId, ...event }) => event);
+    expect(analyze(events, ZONES)[0]?.isolated).toBe(true);
+  });
+
+  it('does not treat a low-severity or distant closure as an access closure', () => {
+    const closure = {
+      ...ESCALATION_EVENTS.find((event) => event.type === 'road_closure')!,
+      severity: 'low' as const,
+    };
+    expect(checkIsolation(ZONE_A, [closure]).isolated).toBe(false);
+    expect(
+      checkIsolation(ZONE_A, [{ ...closure, severity: 'high', lat: 29.9, lon: -95.1 }]),
+    ).toEqual({
+      isolated: false,
+      closedAccessRoadIds: [],
+    });
+  });
+});
+
+describe('source normalizers and ingest', () => {
+  it('normalizes NWS geometry and severity', () => {
+    const events = normalizeNwsAlerts({
+      features: [
+        {
+          id: 'nws-1',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [-95.4, 29.7],
+                [-95.3, 29.7],
+                [-95.3, 29.8],
+                [-95.4, 29.7],
+              ],
+            ],
+          },
+          properties: {
+            headline: 'Flood warning',
+            severity: 'Severe',
+            effective: '2026-10-23T14:00:00.000Z',
+          },
+        },
+      ],
+    });
+    expect(events[0]).toMatchObject({
+      id: 'nws-1',
+      type: 'weather',
+      severity: 'high',
+      description: 'Flood warning',
+    });
+    expect(events[0]?.lat).toBeCloseTo(29.733, 2);
+  });
+
+  it('normalizes emPOWER rows and upserts each stable event id', async () => {
+    expect(normalizeEmpower({ features: [{ attributes: { ZIPCODE: 77002, COUNT: 12 } }] })).toEqual(
+      [{ zip: '77002', electricityDependentCount: 12 }],
+    );
+    const sent: unknown[] = [];
+    const result = await ingestNwsEvents({
+      fetchEvents: async () => [ESCALATION_EVENTS[0]!],
+      dynamo: {
+        send: async (command) => {
+          sent.push(command);
+        },
+      },
+      putItemCommand: (input) => input,
+      tableName: 'events',
+    });
+    expect(result).toEqual({ count: 1 });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ TableName: 'events', Item: { id: { S: 'evt-outage-a' } } });
   });
 });
 

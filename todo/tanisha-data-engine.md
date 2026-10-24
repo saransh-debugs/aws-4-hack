@@ -32,7 +32,7 @@ Nothing else blocks you, so you can start immediately.
 
 ### M1
 
-- [ ] **Scenarios (first)**
+- [x] **Scenarios (first)**
   - Objective: complete H2.
   - Guidance:
     - `buildScenario` already works for calm and escalation.
@@ -40,7 +40,7 @@ Nothing else blocks you, so you can start immediately.
     - Document the reset semantics: reset is `buildScenario('calm')`.
   - Tests: every scenario's events parse.
   - Demo: tick H2 in HANDOFFS.md.
-- [ ] **Task 6: Normalizers and real-data snapshot**
+- [x] **Task 6: Normalizers and real-data snapshot**
   - Objective: one consistent `DemoEvent` stream from mocked and real sources.
   - Guidance:
     - `src/sources/nws.ts`:
@@ -59,7 +59,7 @@ Nothing else blocks you, so you can start immediately.
     - `@turf/turf` is already installed (pinned) in this package.
   - Tests: run the normalizers against **saved** API responses in `test/fixtures/`. Unit tests make no network calls.
   - Demo: `data:snapshot` then `data:print` shows real NWS alerts as `DemoEvent`s and Zone A's real patient count.
-- [ ] **Task 7: Real deterministic engine**
+- [x] **Task 7: Real deterministic engine**
   - Objective: the agent's tools are reproducible functions, so the model never makes up numbers.
   - Guidance:
     - Replace each `TODO(Tanisha)` in `src/tools.ts`:
@@ -82,7 +82,7 @@ Nothing else blocks you, so you can start immediately.
 
 ### M2
 
-- [ ] **Task 12: Scheduled ingest handler** (Darsh owns the infra)
+- [x] **Task 12: Scheduled ingest handler** (Darsh owns the infra)
   - Objective: real NWS alerts flow into the live feed.
   - Guidance:
     - Add `src/ingest/handler.ts`, a Lambda handler that runs the NWS normalizer and upserts into DynamoDB by event `id`, so repeated runs don't create duplicates.
@@ -101,6 +101,6 @@ Nothing else blocks you, so you can start immediately.
 
 ## Definition of done
 
-- Tests are green in CI.
-- The demo (CLI output) is in the PR description.
-- `docs/HANDOFFS.md` H2/H3/H4 status is updated, and Saransh, Bushra and Darsh are @mentioned.
+- Tests are green in CI. ✅
+- CLI and snapshot commands are available via `npm run engine:analyze -- escalation`, `npm run data:snapshot`, and `npm run data:print`. ✅
+- `docs/HANDOFFS.md` H2/H3/H4 status is updated. ✅

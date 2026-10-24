@@ -9,9 +9,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "data:snapshot": "tsx src/cli/dataSnapshot.ts",
+    "data:print": "tsx src/cli/dataPrint.ts",
+    "engine:analyze": "tsx src/cli/analyze.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1156.0",
+    "@aws-sdk/client-dynamodb": "3.1156.0",
     "@gridrisk/shared": "0.0.0",
     "@turf/turf": "7.4.0"
   },
