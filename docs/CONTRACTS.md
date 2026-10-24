@@ -86,7 +86,7 @@ interface AlertCardData {
   toolTrace?: { tool: string; input: unknown; output: unknown }[]; // H9, agent only
 }
 
-type ScenarioName = 'calm' | 'escalation';
+type ScenarioName = 'calm' | 'escalation' | 'partial' | 'reopened';
 ```
 
 **Changes from the original demo prompt:**
@@ -105,7 +105,7 @@ type ScenarioName = 'calm' | 'escalation';
 | `SHELTER_B`, `SHELTERS`    | Shelter B, capacity 200, standby, outside Zone A                            |
 | `CALM_EVENTS`              | 3 low-severity events (tree down, minor flicker, light rain)                |
 | `ESCALATION_EVENTS`        | outage + bridge closure + 3 × 911 water rescues, all in Zone A              |
-| `ESCALATION_ENGINE_RESULT` | Expected engine output: isolated, 340 patients, 120/75 → 45 min             |
+| `ESCALATION_ENGINE_RESULT` | Synthetic expected engine output: isolated, 340 patients, 120/75 → 45 min   |
 | `SAMPLE_ALERT`             | Expected alert: "ZONE A ISOLATED: ACTION REQUIRED" + 2 actions              |
 | `HOUSTON_CENTER`           | `{ lat: 29.76, lon: -95.37 }`                                               |
 

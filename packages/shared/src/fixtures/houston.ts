@@ -32,6 +32,18 @@ export const BRIDGE_ROAD: RoadSegment = {
   },
 };
 
+export const ZONE_B_ROAD: RoadSegment = {
+  id: 'road-zone-b-1',
+  name: 'Main Street Evacuation Route',
+  line: {
+    type: 'LineString',
+    coordinates: [
+      [-95.345, 29.75],
+      [-95.33, 29.75],
+    ],
+  },
+};
+
 export const ZONE_A: Zone = {
   id: 'zone-a',
   /** Display name used verbatim in alert text ("ZONE A ISOLATED…"). Downtown Houston. */
@@ -52,8 +64,27 @@ export const ZONE_A: Zone = {
   accessRoadIds: [BRIDGE_ROAD.id],
 };
 
-export const ZONES: Zone[] = [ZONE_A];
-export const ROADS: RoadSegment[] = [BRIDGE_ROAD];
+export const ZONE_B: Zone = {
+  id: 'zone-b',
+  name: 'Zone B',
+  polygon: {
+    type: 'Polygon',
+    coordinates: [
+      [
+        [-95.345, 29.74],
+        [-95.32, 29.74],
+        [-95.32, 29.765],
+        [-95.345, 29.765],
+        [-95.345, 29.74],
+      ],
+    ],
+  },
+  zips: ['77004'],
+  accessRoadIds: [ZONE_B_ROAD.id],
+};
+
+export const ZONES: Zone[] = [ZONE_A, ZONE_B];
+export const ROADS: RoadSegment[] = [BRIDGE_ROAD, ZONE_B_ROAD];
 
 export const SHELTER_B: Shelter = {
   id: 'shelter-b',

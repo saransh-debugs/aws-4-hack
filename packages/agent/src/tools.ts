@@ -17,8 +17,7 @@
 import { z } from 'zod';
 import type { ToolSpecification } from '@aws-sdk/client-bedrock-runtime';
 import type { DemoEvent, Shelter, Zone } from '@gridrisk/shared';
-import { ESCALATION_ENGINE_RESULT, SHELTERS } from '@gridrisk/shared/fixtures';
-import type { EngineConfig } from '@gridrisk/engine';
+import { analyze, type EngineConfig } from '@gridrisk/engine';
 import { SubmitAlertSchema } from './submit';
 
 export const TOOL_NAMES = [
@@ -84,8 +83,8 @@ export const TOOL_SPECS: ToolSpecification[] = TOOL_NAMES.map((name) => ({
 /**
  * Run one tool. Never throws: unknown tools, unknown zones and bad input return `{ ok: false }`.
  *
- * A0 STUB: returns the matching slice of ESCALATION_ENGINE_RESULT for any known zone.
- * TODO(Tanisha): validate input with zod and call the real engine functions with `ctx`.
+ * Answers come from the deterministic engine run over `ctx`, so the model sees the same numbers
+ * the grounding check uses. TODO(Tanisha): one zod input schema per tool.
  */
 export function executeTool(name: string, input: unknown, ctx: ToolContext): ToolExecution {
   if (!isToolName(name) || name === 'submit_alert') {
@@ -98,13 +97,30 @@ export function executeTool(name: string, input: unknown, ctx: ToolContext): Too
     return { ok: false, error: `Unknown zone: ${zoneId}` };
   }
 
-  const r = ESCALATION_ENGINE_RESULT;
+  if (name === 'get_active_events') {
+    return {
+      ok: true,
+      output: { events: ctx.events.filter((e) => !zoneId || e.zoneId === zoneId) },
+    };
+  }
+
+  // A zone with no correlated events has no engine result: report it as quiet.
+  const r = analyze(ctx.events, ctx.zones, { config: ctx.config, shelters: ctx.shelters }).find(
+    (x) => x.zoneId === zoneId,
+  ) ?? {
+    zoneId: zoneId!,
+    isolated: false,
+    closedAccessRoadIds: [],
+    outageEventIds: [],
+    closureEventIds: [],
+    emergencyEventIds: [],
+    dependentPatients: 0,
+    avgBackupMinutes: ctx.config.avgBackupMinutes,
+    estimatedResponseMinutes: ctx.config.estimatedResponseMinutes,
+    isolationWindowMinutes: 0,
+    candidateShelterIds: [],
+  };
   switch (name) {
-    case 'get_active_events':
-      return {
-        ok: true,
-        output: { events: ctx.events.filter((e) => !zoneId || e.zoneId === zoneId) },
-      };
     case 'correlate_zone':
       return {
         ok: true,
@@ -125,7 +141,7 @@ export function executeTool(name: string, input: unknown, ctx: ToolContext): Too
     case 'find_shelters':
       return {
         ok: true,
-        output: { shelters: SHELTERS.filter((s) => r.candidateShelterIds.includes(s.id)) },
+        output: { shelters: ctx.shelters.filter((s) => r.candidateShelterIds.includes(s.id)) },
       };
     case 'compute_isolation_window':
       return {

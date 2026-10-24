@@ -7,7 +7,7 @@ import {
   type ConverseCommandOutput,
   type Message,
 } from '@aws-sdk/client-bedrock-runtime';
-import { DEFAULT_CONFIG, buildScenario } from '@gridrisk/engine';
+import { DEFAULT_CONFIG, buildScenario, dependentPatients } from '@gridrisk/engine';
 import { SHELTERS, ZONE_A, ZONES } from '@gridrisk/shared/fixtures';
 import {
   AgentError,
@@ -28,10 +28,12 @@ const ctx: ToolContext = {
 };
 const zone = { id: ZONE_A.id, name: ZONE_A.name };
 const MODEL = 'test-model';
+/** Real engine count (HHS emPOWER snapshot), not a hard-coded fixture. */
+const PATIENTS = dependentPatients(ZONE_A);
 
 const SUBMISSION = {
   title: 'ZONE A ISOLATED: ACTION REQUIRED',
-  points: ['340 electricity-dependent patients.', 'About 45 minutes remain.'],
+  points: [`${PATIENTS} electricity-dependent patients.`, 'About 45 minutes remain.'],
   actionTypes: ['activate_shelter', 'dispatch_drone'],
 };
 
@@ -94,7 +96,7 @@ describe('runBedrockLoop', () => {
     expect(out.trace[2]).toEqual({
       tool: 'get_dependent_patients',
       input: { zoneId: 'zone-a' },
-      output: { zoneId: 'zone-a', dependentPatients: 340 },
+      output: { zoneId: 'zone-a', dependentPatients: PATIENTS },
     });
 
     // Both toolUses of turn 1 come back together in one user message.
@@ -234,7 +236,7 @@ describe('createStubModel', () => {
     expect(out.trace.every((t) => !('error' in (t.output as object)))).toBe(true);
     expect(out.submission.title).toBe('ZONE A ISOLATED: ACTION REQUIRED');
     const text = out.submission.points.join(' ');
-    expect(text).toContain('340 electricity-dependent patients');
+    expect(text).toContain(`${PATIENTS} electricity-dependent patients`);
     expect(text).toContain('2 hours');
     expect(text).toContain('45 minutes');
     expect(out.submission.actionTypes).toEqual([
@@ -253,7 +255,7 @@ describe('createStubModel', () => {
     });
     const text = out.submission.points.join(' ');
     expect(text).toContain(`${HALLUCINATED_PATIENTS} electricity-dependent patients`);
-    expect(text).not.toContain('340');
+    expect(text).not.toContain(`${PATIENTS} electricity`);
   });
 
   it('respects an aborted signal', async () => {
