@@ -98,10 +98,10 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
 
 ### A0 – Interface stubs (Saransh, before everything)
 
-- [ ] Stubs for every signature above, returning fixture data (for example `executeTool` returns
+- [x] Stubs for every signature above, returning fixture data (for example `executeTool` returns
       the matching part of `ESCALATION_ENGINE_RESULT`, and `checkGrounding` returns `{ ok: true }`).
-- [ ] Add the pinned dependencies; `npm run verify` is green.
-- [ ] Demo: everyone can `import` every interface on `main`.
+- [x] Add the pinned dependencies; `npm run verify` is green.
+- [x] Demo: everyone can `import` every interface on `main`.
 
 ### A1 – Tools (Tanisha) · M1 · part of Task 8
 
@@ -183,7 +183,7 @@ that directory.
 
 ### M1
 
-- [ ] **Task 4: EventFeed** (from Bushra, in `apps/web`, Bushra reviews)
+- [x] **Task 4: EventFeed** (from Bushra, in `apps/web`, Bushra reviews)
   - Objective: a live list of events in the left sidebar.
   - Guidance: newest first; colors by severity, plus severity text or an icon so color isn't the
     only signal; monospace timestamps and IDs; clicking an item sets `selectedEventId` and flies
@@ -194,7 +194,7 @@ that directory.
 
 ### M2
 
-- [ ] **Task 13a: LiveAdapter against MSW** (from Bushra, in `apps/web`, Bushra reviews)
+- [x] **Task 13a: LiveAdapter against MSW** (from Bushra, in `apps/web`, Bushra reviews)
   - Objective: the live mode is ready before the backend exists.
   - Guidance: add `src/data/LiveAdapter.ts`, which uses `fetch`, `API_ROUTES` and `buildPath`,
     and validates responses with the zod schemas. Add MSW handlers that follow
@@ -202,7 +202,7 @@ that directory.
     that runs against both `MockAdapter` (Bushra's H8) and `LiveAdapter`.
   - Tests: the shared contract suite passes for both adapters.
   - Demo: `VITE_DATA_MODE=live` with MSW behaves the same as mock mode.
-- [ ] **Approve handler, part of Task 11** (from Darsh, in `infra`, Darsh reviews)
+- [x] **Approve handler, part of Task 11** (from Darsh, in `infra`, Darsh reviews)
   - Objective: `POST /alerts/{id}/approve` behaves exactly as `docs/CONTRACTS.md` says.
   - Guidance: a Lambda handler that validates the body with `ApproveRequestSchema`, loads the
     alert, rejects unknown `actionIds`, calls Step Functions `SendTaskSuccess` with the stored task
@@ -212,7 +212,7 @@ that directory.
   - Tests (`aws-sdk-client-mock` for DynamoDB and SFN): 200; 400 for an empty or unknown
     `actionIds`; 404 for an unknown alert; 409 if it is already approved or dispatched;
     `SendTaskSuccess` is not called on any error.
-- [ ] **Tool-trace panel, part of Task 13b** (from Bushra, in `apps/web`, Bushra reviews)
+- [x] **Tool-trace panel, part of Task 13b** (from Bushra, in `apps/web`, Bushra reviews)
   - Objective: judges can see how the agent reached its alert (H9).
   - Guidance: a collapsible panel in the AlertCard slot Bushra leaves, listing each `toolTrace`
     entry (tool name, a short input, the key output numbers). Hidden for template alerts, which
