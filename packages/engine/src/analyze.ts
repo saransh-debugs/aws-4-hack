@@ -16,7 +16,7 @@ export interface AnalyzeOptions {
 }
 
 /**
- * Handoff H3. One EngineResult per zone that has correlated outage/closure/911 events.
+ * Handoff H3. One EngineResult per zone that has correlated outage/closure events.
  * Deterministic: same input gives the same output.
  *
  * M0: composed from the stub tools in ./tools; produces exactly ESCALATION_ENGINE_RESULT

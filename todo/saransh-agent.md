@@ -128,8 +128,8 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
   - `send_alert` is new: id `act-alert-<zoneId>`. De-duplicate types, and skip `activate_shelter`
     when the engine found no shelter.
   - `checkGrounding`: every number in the title and points must come from the `EngineResult`
-    (patients, minutes and their hour equivalents, event counts, shelter capacity, "911").
-    Make it **unit-aware**: "3 hours" must fail even though 3 is a valid 911-call count.
+    (patients, minutes and their hour equivalents, event counts, shelter capacity).
+    Make it **unit-aware** so counts cannot be confused with time values.
     `isolationWindowMinutes` must equal the engine value.
 - Tests: accepts `SAMPLE_ALERT` and "2 hours" for 120 min; rejects "500 patients", "30 minutes",
   "3 HOURS" and a wrong `isolationWindowMinutes`; the assembled alert parses.

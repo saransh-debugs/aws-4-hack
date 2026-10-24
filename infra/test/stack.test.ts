@@ -4,13 +4,14 @@ import { Template } from 'aws-cdk-lib/assertions';
 import { GridRiskStack } from '../lib/gridrisk-stack';
 
 describe('GridRiskStack', () => {
-  it('synthesizes (M0: no resources yet)', () => {
+  it('synthesizes persistent stores and scheduled ingest', () => {
     const app = new App();
     const stack = new GridRiskStack(app, 'TestStack', { env: { region: 'us-east-1' } });
     const template = Template.fromStack(stack);
 
     expect(stack.region).toBe('us-east-1');
-    // Pattern for Task 10: template.resourceCountIs('AWS::DynamoDB::Table', 2);
-    template.resourceCountIs('AWS::DynamoDB::Table', 0);
+    template.resourceCountIs('AWS::DynamoDB::Table', 3);
+    template.resourceCountIs('AWS::Lambda::Function', 1);
+    template.resourceCountIs('AWS::Events::Rule', 1);
   });
 });

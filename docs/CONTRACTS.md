@@ -15,7 +15,7 @@ wins.** Fix this page in the same PR.
 ## Data shapes
 
 ```ts
-type EventType = 'weather' | 'outage' | 'road_closure' | '911';
+type EventType = 'weather' | 'outage' | 'road_closure';
 type Severity = 'low' | 'high' | 'critical';
 
 interface DemoEvent {
@@ -57,7 +57,7 @@ interface EngineResult {
   isolated: boolean;
   closedAccessRoadIds: string[];
   outageEventIds: string[];
-  closureEventIds: string[]; // added at M0 so the UI can draw outage → closure → 911 lines
+  closureEventIds: string[]; // added at M0 so the UI can draw outage → closure lines
   emergencyEventIds: string[];
   dependentPatients: number;
   avgBackupMinutes: number; // ASSUMPTION
@@ -104,7 +104,7 @@ type ScenarioName = 'calm' | 'escalation' | 'partial' | 'reopened';
 | `BRIDGE_ROAD`, `ROADS`     | `road-bridge-1`, the only access road into Zone A                           |
 | `SHELTER_B`, `SHELTERS`    | Shelter B, capacity 200, standby, outside Zone A                            |
 | `CALM_EVENTS`              | 3 low-severity events (tree down, minor flicker, light rain)                |
-| `ESCALATION_EVENTS`        | outage + bridge closure + 3 × 911 water rescues, all in Zone A              |
+| `ESCALATION_EVENTS`        | outage + bridge closure, all in Zone A                                      |
 | `ESCALATION_ENGINE_RESULT` | Synthetic expected engine output: isolated, 340 patients, 120/75 → 45 min   |
 | `SAMPLE_ALERT`             | Expected alert: "ZONE A ISOLATED: ACTION REQUIRED" + 2 actions              |
 | `HOUSTON_CENTER`           | `{ lat: 29.76, lon: -95.37 }`                                               |

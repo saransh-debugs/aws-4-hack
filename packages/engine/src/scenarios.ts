@@ -24,7 +24,6 @@ export function buildScenario(name: ScenarioName): DemoEvent[] {
       return structuredClone([
         ...CALM_EVENTS.filter((event) => event.type !== 'road_closure'),
         ESCALATION_EVENTS[0]!,
-        ...ESCALATION_EVENTS.filter((event) => event.type === '911'),
       ]);
   }
 }
