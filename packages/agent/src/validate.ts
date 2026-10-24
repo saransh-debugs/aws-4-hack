@@ -94,6 +94,9 @@ export function checkGrounding(
     result.isolationWindowMinutes,
     result.avgBackupMinutes,
     result.estimatedResponseMinutes,
+    ...(result.isolationWindowRangeMinutes
+      ? [result.isolationWindowRangeMinutes.min, result.isolationWindowRangeMinutes.max]
+      : []),
   ]);
   // Their whole-hour equivalents.
   const durationHours = new Set<number>(

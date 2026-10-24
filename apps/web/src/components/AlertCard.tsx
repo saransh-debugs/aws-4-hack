@@ -107,6 +107,12 @@ export function AlertCard({ alert, onApproved, clock }: AlertCardProps) {
         <p className="font-mono text-xs text-amber-300 tabular-nums">
           ⏱️ ISOLATION WINDOW: {countdown.label}
         </p>
+        {alert.uncertainty === 'planning-estimate' && alert.isolationWindowRangeMinutes && (
+          <p className="font-mono text-[11px] text-amber-200">
+            Planning range: {alert.isolationWindowRangeMinutes.min}–
+            {alert.isolationWindowRangeMinutes.max} minutes; assumptions are not validated.
+          </p>
+        )}
       </header>
 
       <ul className="list-disc space-y-1 pl-5 text-[13px] leading-snug text-slate-100">

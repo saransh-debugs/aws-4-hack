@@ -69,6 +69,7 @@ export class GridRiskStack extends Stack {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       stream: dynamodb.StreamViewType.NEW_IMAGE,
+      timeToLiveAttribute: 'expiresAt',
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
@@ -105,6 +106,12 @@ export class GridRiskStack extends Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY,
     });
+    const auditTable = new dynamodb.Table(this, 'AuditTable', {
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
     // Lets the stream trigger debounce per zone.
     alertsTable.addGlobalSecondaryIndex({
       indexName: 'zoneId-index',
@@ -123,6 +130,12 @@ export class GridRiskStack extends Stack {
     const userPoolClient = userPool.addClient('WebClient', {
       authFlows: { userPassword: true, userSrp: true },
       generateSecret: false,
+    });
+
+    new cognito.CfnUserPoolGroup(this, 'OperatorGroup', {
+      userPoolId: userPool.userPoolId,
+      groupName: 'gridrisk-operator',
+      description: 'Can approve and dispatch GridRisk response requests',
     });
 
     const authorizer = new HttpJwtAuthorizer(
@@ -226,6 +239,16 @@ export class GridRiskStack extends Stack {
     runAgentFn.addEnvironment('GEOGRAPHY_TABLE', geographyTable.tableName);
     runAgentFn.addEnvironment('SNAPSHOTS_TABLE', snapshotsTable.tableName);
     snapshotsTable.grantReadData(runAgentFn);
+    for (const name of [
+      'GRIDRISK_BACKUP_MINUTES_NOMINAL',
+      'GRIDRISK_RESPONSE_MINUTES_NOMINAL',
+      'GRIDRISK_BACKUP_MINUTES_MIN',
+      'GRIDRISK_BACKUP_MINUTES_MAX',
+      'GRIDRISK_RESPONSE_MINUTES_MIN',
+      'GRIDRISK_RESPONSE_MINUTES_MAX',
+    ]) {
+      runAgentFn.addEnvironment(name, process.env[name] ?? '');
+    }
 
     const saveAlertFn = mkFn('SaveAlertFn', 'sfn/saveAlert.ts');
     alertsTable.grantWriteData(saveAlertFn);
@@ -244,6 +267,9 @@ export class GridRiskStack extends Stack {
 
     const markDispatchedFn = mkFn('MarkDispatchedFn', 'sfn/markDispatched.ts');
     alertsTable.grantReadWriteData(markDispatchedFn);
+
+    const releaseZoneLockFn = mkFn('ReleaseZoneLockFn', 'sfn/releaseZoneLock.ts');
+    alertsTable.grantWriteData(releaseZoneLockFn);
 
     // ---------------------------------------------------------------------
     // Task 11: state machine
@@ -297,15 +323,27 @@ export class GridRiskStack extends Stack {
       lambdaFunction: markDispatchedFn,
       payload: sfn.TaskInput.fromObject({ 'alertId.$': '$.approval.alertId' }),
       payloadResponseOnly: true,
+      resultPath: '$.marked',
+    });
+
+    const releaseZoneLockTask = new tasks.LambdaInvoke(this, 'ReleaseZoneLock', {
+      lambdaFunction: releaseZoneLockFn,
+      payload: sfn.TaskInput.fromObject({ 'zoneId.$': '$.zoneId' }),
+      payloadResponseOnly: true,
+    });
+    const releaseZoneLockAfterNoAlertTask = new tasks.LambdaInvoke(this, 'ReleaseZoneLockNoAlert', {
+      lambdaFunction: releaseZoneLockFn,
+      payload: sfn.TaskInput.fromObject({ 'zoneId.$': '$.zoneId' }),
+      payloadResponseOnly: true,
     });
 
     const definition = runAgentTask.next(
       new sfn.Choice(this, 'Raised?')
         .when(
           sfn.Condition.booleanEquals('$.raised', true),
-          saveAlertTask.next(dispatchParallel).next(markDispatchedTask),
+          saveAlertTask.next(dispatchParallel).next(markDispatchedTask).next(releaseZoneLockTask),
         )
-        .otherwise(new sfn.Succeed(this, 'NoAlert')),
+        .otherwise(releaseZoneLockAfterNoAlertTask),
     );
 
     const stateMachine = new sfn.StateMachine(this, 'ApprovalStateMachine', {
@@ -335,8 +373,12 @@ export class GridRiskStack extends Stack {
     // ---------------------------------------------------------------------
     // Task 11: POST /alerts/{id}/approve handler (resumes the execution)
     // ---------------------------------------------------------------------
-    const approveFn = mkFn('ApproveFn', 'approve.ts');
+    const approveFn = mkFn('ApproveFn', 'approve.ts', {
+      AUDIT_TABLE: auditTable.tableName,
+      GRIDRISK_OPERATOR_GROUP: 'gridrisk-operator',
+    });
     alertsTable.grantReadWriteData(approveFn);
+    auditTable.grantWriteData(approveFn);
     approveFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['states:SendTaskSuccess'],

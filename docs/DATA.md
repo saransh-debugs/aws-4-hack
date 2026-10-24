@@ -177,14 +177,16 @@ back to 340 only for Zone A when the snapshot has no matching rows.
 
 The following are not observed data:
 
-- `avgBackupMinutes = 120`: assumed average backup duration for electricity-dependent equipment.
-- `estimatedResponseMinutes = 75`: assumed time to reach an isolated zone.
-- `isolationWindowMinutes = max(0, 120 - 75) = 45`.
+- `avgBackupMinutes = 120`: nominal planning value for device backup duration.
+- `estimatedResponseMinutes = 75`: nominal planning value for response duration.
+- Default planning ranges are 60–180 minutes for backup and 45–120 minutes for response, yielding a
+  remaining-window range of 0–135 minutes.
 
 They are defined in [`packages/engine/src/config.ts`](../packages/engine/src/config.ts), validated only
-as finite non-negative numbers, and returned in every `EngineResult`. They have not been empirically
-validated by this repository. Do not present them as patient-level clinical guidance or an operational
-guarantee until emergency-management and clinical stakeholders approve a methodology and source data.
+for shape and ordering, and returned with `uncertainty: planning-estimate`. They have not been
+empirically validated by this repository. Do not present them as patient-level clinical guidance or
+an operational guarantee until emergency-management and clinical stakeholders approve a methodology
+and source data.
 
 ## Freshness and data-quality controls
 
@@ -203,6 +205,13 @@ alerting pipeline. The Lambda currently logs provider failures but does not pers
 emit CloudWatch alarms, quarantine bad records, detect cross-provider conflicts, or delete stale records.
 Those are required before live emergency decision-making.
 
+The deployed path now persists provider health at `/health`, displays non-healthy sources in the web
+app, assigns a 30-minute DynamoDB TTL to newly ingested provider events, and filters expired records
+from `GET /events`. DynamoDB TTL deletion is asynchronous, so the API filter is the authoritative
+short-term safeguard. When no DriveTexas key is configured, the health endpoint reports that the
+road-closure provider is unavailable; the application should be treated as outage-only until a
+road provider is connected.
+
 ## Current readiness
 
 ### Production safety
@@ -220,6 +229,11 @@ notification action publishes to the configured SNS topic; the shelter action re
 `activation_requested` record; and the drone action records a `requested` mission. These are
 auditable requests, not direct control of a shelter, public-alert, or drone system. A real provider
 integration must be added before presenting them as completed field actions.
+
+Approvals now require membership in the Cognito `gridrisk-operator` group and are recorded in a
+retained audit table with actor, alert, action ids, and timestamp. Run the demo-user setup script
+after deployment to assign the demo account to that group. Regular authenticated users can still
+read current data but cannot approve requests.
 
 ### Complete for the grounded prototype
 

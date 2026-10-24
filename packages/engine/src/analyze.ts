@@ -52,6 +52,15 @@ export function analyze(
         avgBackupMinutes: config.avgBackupMinutes,
         estimatedResponseMinutes: config.estimatedResponseMinutes,
         isolationWindowMinutes: computeIsolationWindow(config),
+        ...(config.backupRangeMinutes && config.responseRangeMinutes
+          ? {
+              isolationWindowRangeMinutes: {
+                min: Math.max(0, config.backupRangeMinutes.min - config.responseRangeMinutes.max),
+                max: Math.max(0, config.backupRangeMinutes.max - config.responseRangeMinutes.min),
+              },
+            }
+          : {}),
+        uncertainty: 'planning-estimate' as const,
         candidateShelterIds: findShelters(zone, shelters).map((s) => s.id),
       },
     ];

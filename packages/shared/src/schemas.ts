@@ -41,6 +41,9 @@ export const DemoEventSchema = z.object({
   zoneId: z.string().optional(),
   /** ISO-8601 timestamp. */
   timestamp: z.iso.datetime().optional(),
+  source: z.string().optional(),
+  ingestedAt: z.iso.datetime().optional(),
+  expiresAt: z.number().int().positive().optional(),
 });
 export type DemoEvent = z.infer<typeof DemoEventSchema>;
 
@@ -115,6 +118,10 @@ export const EngineResultSchema = z.object({
   avgBackupMinutes: z.number().nonnegative(),
   estimatedResponseMinutes: z.number().nonnegative(),
   isolationWindowMinutes: z.number(),
+  isolationWindowRangeMinutes: z
+    .object({ min: z.number().nonnegative(), max: z.number().nonnegative() })
+    .optional(),
+  uncertainty: z.literal('planning-estimate').optional(),
   candidateShelterIds: z.array(z.string()),
 });
 export type EngineResult = z.infer<typeof EngineResultSchema>;
@@ -151,6 +158,10 @@ export const AlertCardDataSchema = z.object({
   title: z.string().min(1),
   points: z.array(z.string().min(1)).min(1),
   isolationWindowMinutes: z.number(),
+  isolationWindowRangeMinutes: z
+    .object({ min: z.number().nonnegative(), max: z.number().nonnegative() })
+    .optional(),
+  uncertainty: z.literal('planning-estimate').optional(),
   proposedActions: z.array(ProposedActionSchema),
   /** Event ids the UI draws connecting lines between. */
   relatedEventIds: z.array(z.string()),

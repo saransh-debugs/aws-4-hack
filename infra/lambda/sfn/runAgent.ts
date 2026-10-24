@@ -14,6 +14,7 @@ import { GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 import { MapDataSchema, type AlertCardData, type DemoEvent } from '@gridrisk/shared';
 import { runAgent, type AgentLogger } from '@gridrisk/agent';
+import { DEFAULT_CONFIG } from '@gridrisk/engine';
 import { ddb, EVENTS_TABLE, GEOGRAPHY_TABLE, requireEnv } from '../shared/ddb';
 
 interface Input {
@@ -24,6 +25,11 @@ interface Output {
   zoneId: string;
   raised: boolean;
   alert?: AlertCardData;
+}
+
+function minutes(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 // Reused across warm invocations. Region follows AWS_REGION (us-east-1 in prod).
@@ -63,6 +69,21 @@ export async function handler(input: Input): Promise<Output> {
       roads: mapData.roads,
       shelters: mapData.shelters,
       patientCounts,
+      config: {
+        avgBackupMinutes: minutes('GRIDRISK_BACKUP_MINUTES_NOMINAL', DEFAULT_CONFIG.avgBackupMinutes),
+        estimatedResponseMinutes: minutes(
+          'GRIDRISK_RESPONSE_MINUTES_NOMINAL',
+          DEFAULT_CONFIG.estimatedResponseMinutes,
+        ),
+        backupRangeMinutes: {
+          min: minutes('GRIDRISK_BACKUP_MINUTES_MIN', DEFAULT_CONFIG.backupRangeMinutes!.min),
+          max: minutes('GRIDRISK_BACKUP_MINUTES_MAX', DEFAULT_CONFIG.backupRangeMinutes!.max),
+        },
+        responseRangeMinutes: {
+          min: minutes('GRIDRISK_RESPONSE_MINUTES_MIN', DEFAULT_CONFIG.responseRangeMinutes!.min),
+          max: minutes('GRIDRISK_RESPONSE_MINUTES_MAX', DEFAULT_CONFIG.responseRangeMinutes!.max),
+        },
+      },
     },
   );
   if (!alert) return { zoneId: input.zoneId, raised: false };

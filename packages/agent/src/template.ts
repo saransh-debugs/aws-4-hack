@@ -42,6 +42,11 @@ export function buildTemplateAlert(result: EngineResult, options: TemplateOption
   points.push(
     `Deterministic engine calculates ${result.dependentPatients} electricity-dependent patients here, with an average backup of just ${formatDuration(result.avgBackupMinutes)}.`,
   );
+  if (result.isolationWindowRangeMinutes) {
+    points.push(
+      `Planning estimate only: the remaining response window may range from ${formatDuration(result.isolationWindowRangeMinutes.min)} to ${formatDuration(result.isolationWindowRangeMinutes.max)} because backup and response times are not clinically validated.`,
+    );
+  }
 
   // Fixed fallback requests: the workflow records a shelter request and drone mission request.
   const proposedActions = buildProposedActions(['activate_shelter', 'dispatch_drone'], {
@@ -58,6 +63,8 @@ export function buildTemplateAlert(result: EngineResult, options: TemplateOption
       : `${zoneName.toUpperCase()} AT RISK: MONITOR`,
     points,
     isolationWindowMinutes: result.isolationWindowMinutes,
+    isolationWindowRangeMinutes: result.isolationWindowRangeMinutes,
+    uncertainty: 'planning-estimate',
     proposedActions,
     relatedEventIds: [
       ...result.outageEventIds,
