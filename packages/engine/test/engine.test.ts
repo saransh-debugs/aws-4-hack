@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { DemoEventSchema, EngineResultSchema } from '@gridrisk/shared';
+import { DemoEventSchema, EngineResultSchema, ScenarioNameSchema } from '@gridrisk/shared';
 import {
   CALM_EVENTS,
   ESCALATION_ENGINE_RESULT,
@@ -18,6 +18,7 @@ import {
   dependentPatients,
   findShelters,
   buildPartialScenario,
+  SCENARIO_NAMES,
   buildReopenedScenario,
 } from '../src';
 import { normalizeEmpower } from '../src/sources/empower';
@@ -49,11 +50,49 @@ describe('buildScenario (H2)', () => {
     expect(CALM_EVENTS[0]!.description).not.toBe('mutated');
   });
 
-  it('includes partial and reopened variants', () => {
-    expect(buildPartialScenario().some((event) => event.type === 'outage')).toBe(true);
-    expect(buildPartialScenario().some((event) => event.type === 'road_closure')).toBe(false);
-    expect(buildReopenedScenario().some((event) => event.type === 'road_closure')).toBe(false);
+  it('partial has the Zone A outage but no closure in Zone A', () => {
+    const events = buildPartialScenario();
+    expect(events.some((e) => e.id === 'evt-outage-a')).toBe(true);
+    expect(events.some((e) => e.type === 'road_closure' && e.zoneId === ZONE_A.id)).toBe(false);
+  });
+
+  it('reopened keeps the bridge event but downgrades it to low', () => {
+    const bridge = buildReopenedScenario().find((e) => e.id === 'evt-closure-bridge');
+    expect(bridge?.severity).toBe('low');
+    expect(bridge?.description).toMatch(/reopened/i);
     expect(buildScenario('reopened')).toEqual(buildReopenedScenario());
+  });
+
+  it('every scenario is valid, has unique ids and is a fresh copy', () => {
+    for (const name of SCENARIO_NAMES) {
+      const events = buildScenario(name);
+      expect(() => z.array(DemoEventSchema).parse(events), name).not.toThrow();
+      expect(new Set(events.map((e) => e.id)).size, name).toBe(events.length);
+    }
+    expect([...SCENARIO_NAMES].sort()).toEqual([...ScenarioNameSchema.options].sort());
+  });
+
+  it.each([
+    ['calm', []],
+    ['partial', []],
+    ['escalation', ['zone-a']],
+    ['reopened', []],
+    ['zone-b', ['zone-b']],
+    ['multi-zone', ['zone-a', 'zone-b']],
+    ['storm', ['zone-a']],
+  ] as const)('%s isolates exactly %j', (name, zones) => {
+    const isolated = analyze(buildScenario(name), ZONES, { shelters: SHELTERS })
+      .filter((r) => r.isolated)
+      .map((r) => r.zoneId);
+    expect(isolated).toEqual(zones);
+  });
+
+  it('Zone B uses real HHS emPOWER counts (ZIP 77004)', () => {
+    const b = analyze(buildScenario('zone-b'), ZONES, { shelters: SHELTERS }).find(
+      (r) => r.zoneId === 'zone-b',
+    );
+    expect(b?.dependentPatients).toBe(211);
+    expect(b?.closedAccessRoadIds).toEqual(['road-zone-b-1']);
   });
 });
 

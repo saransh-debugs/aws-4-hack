@@ -173,7 +173,7 @@ export const SAMPLE_ALERT: AlertCardData = {
   zoneId: ZONE_A.id,
   title: 'ZONE A ISOLATED: ACTION REQUIRED',
   points: [
-    'Storm flooding the only access bridge to Zone A.',
+    'Storm flooding has closed the only access road into Zone A.',
     'Power outage active in this zone.',
     'Deterministic engine calculates 340 electricity-dependent patients here, with an average backup of just 2 hours.',
   ],

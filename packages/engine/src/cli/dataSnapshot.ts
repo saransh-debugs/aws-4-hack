@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fetchSnapshotBundle } from '../sources/refresh';
-import { ZONE_A } from '@gridrisk/shared/fixtures';
+import { ZONES } from '@gridrisk/shared/fixtures';
 
 const snapshotDir = new URL('../../snapshots/', import.meta.url);
 
 async function main(): Promise<void> {
-  const bundle = await fetchSnapshotBundle(ZONE_A.zips);
+  const bundle = await fetchSnapshotBundle(ZONES.flatMap((zone) => zone.zips));
   await mkdir(snapshotDir, { recursive: true });
   await Promise.all([
     writeFile(new URL('nws.json', snapshotDir), `${JSON.stringify(bundle.nws, null, 2)}\n`),
