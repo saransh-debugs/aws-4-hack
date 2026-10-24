@@ -17,7 +17,7 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
 | H2  | `buildScenario()`          | Tanisha | ✅ stub in `@gridrisk/engine`                  |
 | H5  | `runAgent()`               | Saransh | ✅ template stub in `@gridrisk/agent`          |
 | H4  | NWS normalizer + snapshots | Tanisha | Fixtures; wire the ingest Lambda when it lands |
-| H8  | `MockAdapter`              | Bushra  | Needed only for the Playwright e2e (M3)        |
+| H8  | `MockAdapter`              | Bushra  | No longer needed by you: Saransh owns the e2e  |
 
 ## Outbound handoffs
 
@@ -67,8 +67,8 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
          - set the shelter to `active`
          - write a drone mission record
       5. `MarkDispatched`.
-    - **`POST /alerts/{id}/approve`:** validates `actionIds` and calls `SendTaskSuccess`. Returns **404** for an unknown alert and **409** if the alert is already approved or dispatched.
-  - Tests: state machine definition assertions; approve handler tests (200/400/404/409).
+    - **`POST /alerts/{id}/approve`:** the handler code and its tests (validate `actionIds`, `SendTaskSuccess`, 404/409) are **Saransh's**; you wire the route, the authorizer, IAM and where the task token is stored. Agree the alert-record shape with him first.
+  - Tests: state machine definition assertions; the route has the authorizer.
   - Demo: `curl` simulate escalation, and a pending alert appears in `/alerts`. `curl` approve, the SNS email arrives, and the alert shows `dispatched`.
 - [ ] **Task 12 (infrastructure)**
   - EventBridge Scheduler runs every 5 min and invokes the ingest Lambda (Tanisha's handler).
@@ -81,13 +81,24 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
   - 30 s timeout.
 - [ ] **Task 15: Hosting and CI/CD**
   - Amplify Hosting, or S3 + CloudFront with OAC.
-  - A Playwright e2e test in mock mode: calm → simulate → alert → approve → dispatched. Runs in CI.
+  - The Playwright e2e (mock mode) is **Saransh's**; review his CI job change since you own `.github/`.
   - A deploy job on merge to `main`, using GitHub OIDC (no long-lived AWS keys).
 - [ ] **Task 16: Hardening** (all)
   - A hidden Shift+R reset that calls `/simulate/reset` or resets the mock store.
-  - Check that it works offline: no Location key, no network, no Bedrock.
-  - Write the README runbook: setup, env vars, deploy, demo mode.
+  - Check that it works offline: no Location key, no network, no Bedrock (**Tanisha**).
+  - Write the README runbook: setup, env vars, deploy, demo mode (**Tanisha**, you supply the deploy steps).
   - Do 5 reset → simulate → approve runs in a row, in both mock and live mode.
+
+## Agent slice: A4 – Orchestration, fallback and Lambda (M2)
+
+The agent is split four ways. Yours is `runAgent` itself (timeout and template fallback), the
+RunAgent Lambda handler and the `agent:local` CLI (`packages/agent/src/runAgent.ts`,
+`handler.ts`, `scripts/local.ts`). It feeds straight into your Task 14. You review Saransh's slice
+(A3). Details, interfaces and tests are in
+[saransh-agent.md](saransh-agent.md#a4--orchestration-fallback-and-lambda-darsh--m2--task-9--agent-side-of-task-14).
+
+Also: `/packages/agent/` in `.github/CODEOWNERS` lists only Saransh. Add the other three handles
+there so slice owners can approve each other's PRs.
 
 ## Branch naming
 
