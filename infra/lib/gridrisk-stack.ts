@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LAMBDA_DIR = path.join(__dirname, '..', 'lambda');
+const REPO_ROOT = path.join(__dirname, '..', '..');
 
 export interface GridRiskStackProps extends StackProps {
   /** Web origin allowed by CORS and the Location API key referrer restriction. */
@@ -55,7 +56,21 @@ export class GridRiskStack extends Stack {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       stream: dynamodb.StreamViewType.NEW_IMAGE,
-      removalPolicy: RemovalPolicy.DESTROY,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+
+    const sheltersTable = new dynamodb.Table(this, 'SheltersTable', {
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+
+    const snapshotsTable = new dynamodb.Table(this, 'SnapshotsTable', {
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+      removalPolicy: RemovalPolicy.RETAIN,
     });
 
     const alertsTable = new dynamodb.Table(this, 'AlertsTable', {
@@ -342,8 +357,31 @@ export class GridRiskStack extends Stack {
     // ---------------------------------------------------------------------
     // Task 12: EventBridge Scheduler every 5 min -> ingest Lambda (least privilege)
     // ---------------------------------------------------------------------
-    const ingestFn = mkFn('IngestFn', 'ingest.ts');
+    const ingestFn = new NodejsFunction(this, 'IngestFn', {
+      ...commonLambda,
+      memorySize: 512,
+      timeout: Duration.seconds(60),
+      entry: path.join(REPO_ROOT, 'packages/engine/src/ingest/handler.ts'),
+      handler: 'handler',
+      logGroup: new logs.LogGroup(this, 'IngestFnLogs', {
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }),
+      environment: {
+        EVENTS_TABLE: eventsTable.tableName,
+        ALERTS_TABLE: alertsTable.tableName,
+        GRIDRISK_EVENTS_TABLE: eventsTable.tableName,
+        GRIDRISK_SHELTERS_TABLE: sheltersTable.tableName,
+        GRIDRISK_SNAPSHOTS_TABLE: snapshotsTable.tableName,
+        GRIDRISK_CENTERPOINT_OUTAGES_URL: process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL ?? '',
+        DRIVETEXAS_API_KEY: process.env.DRIVETEXAS_API_KEY ?? '',
+        GRIDRISK_ALLOW_SYNTHETIC_UTILITY: process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY ?? 'false',
+        GRIDRISK_SYNTHETIC_ZONE_ID: process.env.GRIDRISK_SYNTHETIC_ZONE_ID ?? 'zone-a',
+      },
+    });
     eventsTable.grantReadWriteData(ingestFn);
+    sheltersTable.grantWriteData(ingestFn);
+    snapshotsTable.grantWriteData(ingestFn);
 
     const schedulerRole = new iam.Role(this, 'IngestSchedulerRole', {
       assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),

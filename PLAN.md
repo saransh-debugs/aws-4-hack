@@ -2,7 +2,7 @@
 
 ## Problem
 
-Emergency Operations Center (EOC) staff see power outages, flooded roads and 911 calls as separate
+Emergency Operations Center (EOC) staff see power outages and flooded roads as separate
 feeds. GridRisk links them into one risk, e.g. _"Zone A is cut off, has no power, and 340
 electricity-dependent patients live there – 45 minutes left."_ It then proposes actions, and **a human must approve** before anything is dispatched.
 
@@ -37,17 +37,16 @@ The scripted 60-second, 3-act demo is **out of scope for now**. The hooks for it
 
 ## Data sources (research summary)
 
-| Demo element                   | Source                                             | Access                                | Use                                       |
-| ------------------------------ | -------------------------------------------------- | ------------------------------------- | ----------------------------------------- |
-| Electricity-dependent patients | HHS emPOWER REST (ArcGIS FeatureServer)            | Public, ZIP level, updated monthly    | **Real** (snapshot) → `dependentPatients` |
-| Weather alerts                 | NWS `api.weather.gov/alerts/active?zone=TXC201`    | Public, GeoJSON, needs `User-Agent`   | **Real** → `DemoEvent` type `weather`     |
-| River / gauge levels           | USGS Water Data API                                | Public                                | Optional proxy for "bridge flooded"       |
-| Power outages                  | DOE ODIN (county level public); EAGLE-I (historic) | Public, county granularity            | Mocked polygon; ODIN optional             |
-| CenterPoint (Houston utility)  | Outage tracker web map                             | **No official API**                   | Not used                                  |
-| Road closures / high water     | DriveTexas API (TxDOT)                             | **Key required** (EM orgs, justified) | Mocked                                    |
-| 911 calls                      | Houston Active Incidents page                      | **HTML only**, no API                 | Mocked                                    |
-| Shelters                       | FEMA Open Shelters FeatureServer                   | Public, often empty outside disasters | Mocked (`Shelter B`)                      |
-| Battery backup duration        | —                                                  | Not published anywhere                | **Assumption** in `engine/src/config.ts`  |
+| Demo element                   | Source                                          | Access                                                                             | Use                                                                        |
+| ------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Electricity-dependent patients | HHS emPOWER REST (ArcGIS FeatureServer)         | Public, ZIP level, updated monthly                                                 | **Real** (snapshot) → `dependentPatients`                                  |
+| Weather alerts                 | NWS `api.weather.gov/alerts/active?zone=TXC201` | Public, GeoJSON, needs `User-Agent`                                                | **Real** → `DemoEvent` type `weather`                                      |
+| River / gauge levels           | USGS Water Data API                             | Public                                                                             | Optional proxy for "bridge flooded"                                        |
+| Power outages                  | CenterPoint public ArcGIS outage tracker        | Public tracker service; schema/availability not guaranteed                         | Normalized when reachable; synthetic fallback remains opt-in               |
+| ERCOT grid outages             | ERCOT public reports                            | Public API with registration; wholesale/resource-level                             | Supplemental grid context only, not customer outage locations              |
+| Road closures / high water     | Houston TranStar feeds; DriveTexas optional     | TranStar samples public but live access requires approval; DriveTexas key required | Candidate sources; live provider access still needed                       |
+| Shelters                       | FEMA Open Shelters FeatureServer                | Public, often empty outside disasters                                              | Adapter and scheduled persistence; `Shelter B` remains the offline fixture |
+| Battery backup duration        | —                                               | Not published anywhere                                                             | **Assumption** in `engine/src/config.ts`                                   |
 
 ## AWS services
 

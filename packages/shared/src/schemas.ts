@@ -25,7 +25,7 @@ export type LineString = z.infer<typeof LineStringSchema>;
 
 // ---------- Events ----------
 
-export const EventTypeSchema = z.enum(['weather', 'outage', 'road_closure', '911']);
+export const EventTypeSchema = z.enum(['weather', 'outage', 'road_closure']);
 export type EventType = z.infer<typeof EventTypeSchema>;
 
 export const SeveritySchema = z.enum(['low', 'high', 'critical']);
@@ -83,7 +83,7 @@ export const EngineResultSchema = z.object({
   isolated: z.boolean(),
   closedAccessRoadIds: z.array(z.string()),
   outageEventIds: z.array(z.string()),
-  /** road_closure events that closed access roads (UI draws outage → closure → 911 lines). */
+  /** road_closure events that closed access roads (UI draws outage → closure lines). */
   closureEventIds: z.array(z.string()),
   emergencyEventIds: z.array(z.string()),
   dependentPatients: z.number().int().nonnegative(),

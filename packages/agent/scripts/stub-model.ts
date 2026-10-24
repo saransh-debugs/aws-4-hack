@@ -72,8 +72,6 @@ function compose(zoneName: string, out: ToolOutputs, hallucinate: boolean): Subm
     );
   }
   if (len(correlation?.outageEventIds) > 0) points.push(`Power is out across ${zoneName}.`);
-  const calls = len(correlation?.emergencyEventIds);
-  if (calls > 0) points.push(`${calls} water-rescue 911 calls are open in the zone.`);
   if (patients !== undefined) {
     const backup = num(window?.avgBackupMinutes);
     points.push(

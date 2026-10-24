@@ -12,7 +12,6 @@ import {
   Construction,
   Info,
   OctagonAlert,
-  Phone,
   TriangleAlert,
   Zap,
   type LucideIcon,
@@ -76,7 +75,6 @@ export function severityClass(severity: Severity): string {
 const TYPE_STYLES: Record<EventType, { label: string; icon: LucideIcon }> = {
   outage: { label: 'Outage', icon: Zap },
   road_closure: { label: 'Road closure', icon: Construction },
-  '911': { label: '911 call', icon: Phone },
   weather: { label: 'Weather', icon: CloudRain },
 };
 

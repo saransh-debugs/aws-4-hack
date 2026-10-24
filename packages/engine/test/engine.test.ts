@@ -24,7 +24,12 @@ import { normalizeEmpower } from '../src/sources/empower';
 import { normalizeNwsAlerts } from '../src/sources/nws';
 import { ingestNwsEvents } from '../src/ingest/handler';
 import { assessFreshness, validateDataQuality } from '../src';
-import { normalizeOperationalEvents } from '../src/sources/operational';
+import {
+  normalizeCenterPointOutages,
+  normalizeDriveTexasConditions,
+  normalizeFemaOpenShelters,
+  normalizeOperationalEvents,
+} from '../src/sources/operational';
 import { fetchSnapshotBundle } from '../src/sources/refresh';
 
 describe('buildScenario (H2)', () => {
@@ -83,7 +88,7 @@ describe('tool stubs keep their contracts', () => {
       zoneId: ZONE_A.id,
       outageEventIds: ['evt-outage-a'],
       closureEventIds: ['evt-closure-bridge'],
-      emergencyEventIds: ['evt-911-1', 'evt-911-2', 'evt-911-3'],
+      emergencyEventIds: [],
     });
   });
 
@@ -194,6 +199,79 @@ describe('source normalizers and ingest', () => {
     expect(issues.filter((issue) => issue.code === 'duplicate_id')).toHaveLength(1);
     expect(issues.filter((issue) => issue.code === 'stale_event')).toHaveLength(2);
     expect(issues.filter((issue) => issue.code === 'missing_road')).toHaveLength(2);
+  });
+
+  it('normalizes DriveTexas closures and FEMA shelter capacity/status', () => {
+    expect(
+      normalizeDriveTexasConditions({
+        features: [
+          {
+            id: 'tx-1',
+            geometry: { type: 'Point', coordinates: [-95.38, 29.76] },
+            properties: { description: 'Flood closure', condition: 'closed' },
+          },
+        ],
+      }),
+    ).toMatchObject([{ id: 'tx-1', type: 'road_closure', severity: 'critical' }]);
+    expect(
+      normalizeFemaOpenShelters({
+        features: [
+          {
+            attributes: {
+              shelter_id: 7,
+              shelter_name: 'FEMA Shelter',
+              latitude: 29.76,
+              longitude: -95.37,
+              post_impact_capacity: 100,
+              shelter_status_code: 'OPEN',
+            },
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        id: 'fema-7',
+        name: 'FEMA Shelter',
+        lat: 29.76,
+        lon: -95.37,
+        capacity: 100,
+        status: 'active',
+      },
+    ]);
+  });
+
+  it('normalizes active CenterPoint ArcGIS outages and ignores restored records', () => {
+    expect(
+      normalizeCenterPointOutages({
+        features: [
+          {
+            attributes: {
+              outage_id: 'cp-1',
+              latitude: 29.76,
+              longitude: -95.37,
+              status: 'Investigating',
+              customers_affected: 250,
+              updated_at: '2026-10-24T14:00:00Z',
+            },
+          },
+          {
+            attributes: {
+              outage_id: 'cp-2',
+              latitude: 29.77,
+              longitude: -95.38,
+              status: 'Restored',
+            },
+          },
+        ],
+      }),
+    ).toMatchObject([
+      {
+        id: 'centerpoint-cp-1',
+        type: 'outage',
+        severity: 'high',
+        description: expect.stringContaining('250 customers affected'),
+      },
+    ]);
   });
 
   it('reports snapshot freshness', () => {

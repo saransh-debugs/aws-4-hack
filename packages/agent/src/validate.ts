@@ -1,6 +1,6 @@
 /**
  * A2 – Grounding check (owner: Bushra): every number in the alert text must come from the
- * EngineResult, unit-aware ("3 hours" fails even though 3 is a valid 911-call count).
+ * EngineResult, unit-aware (for example, a duration must not be confused with a count).
  *
  * A0 STUB: always passes. TODO(Bushra): real check.
  */

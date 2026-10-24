@@ -57,8 +57,8 @@ const ZoneInput = z.object({ zoneId: z.string().describe('Zone id, e.g. "zone-a"
 
 const DESCRIPTIONS: Record<ToolName, string> = {
   get_active_events:
-    'List active events (outages, road closures, 911 calls, weather), optionally for one zone.',
-  correlate_zone: 'Group the outage, road-closure and 911 event ids that belong to a zone.',
+    'List active events (outages, road closures, weather), optionally for one zone.',
+  correlate_zone: 'Group the outage and road-closure event ids that belong to a zone.',
   check_isolation: 'Check whether every access road into the zone is closed.',
   get_dependent_patients: 'Count electricity-dependent patients in the zone (HHS emPOWER).',
   find_shelters: 'List shelters that can take evacuees from the zone, best first.',

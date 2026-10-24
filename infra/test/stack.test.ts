@@ -19,9 +19,9 @@ describe('GridRiskStack', () => {
     expect(stack.region).toBe('us-east-1');
   });
 
-  it('Task 10: has exactly 2 DynamoDB tables', () => {
+  it('Task 10: has event, alert, shelter, and snapshot tables', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::DynamoDB::Table', 2);
+    template.resourceCountIs('AWS::DynamoDB::Table', 4);
   });
 
   it('Task 10: the events table enables a NEW_IMAGE stream', () => {

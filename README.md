@@ -115,7 +115,7 @@ TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
 # Calm baseline
 curl -s -H "Authorization: Bearer $TOKEN" "$API/events" | jq '.events | length'
 
-# Escalate: adds the Zone A outage + bridge closure + 911 set
+# Escalate: adds the Zone A outage and bridge closure
 curl -s -X POST -H "Authorization: Bearer $TOKEN" "$API/simulate/escalation" | jq '.events | length'
 
 # A pending alert appears (the events stream starts the workflow)

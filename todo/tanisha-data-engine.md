@@ -5,6 +5,10 @@
 You own the event data (mocked and real), and the deterministic engine that turns events into risk.
 Most other tracks depend on you, so ship H2/H3 first, then deepen them.
 
+The authoritative current data-engine status, provider links, runtime ingestion path, configuration,
+limitations, and next-owner checklist are in [`docs/DATA.md`](../docs/DATA.md). This TODO is the historical
+track plan; use it for ownership and milestone context, and use `docs/DATA.md` for implementation truth.
+
 - Owns: `packages/engine/**` (including `snapshots/` and `sources/` once you create them)
 - Reads: `@gridrisk/shared`
 - Test it: `npm test -w @gridrisk/engine`
@@ -83,13 +87,20 @@ Nothing else blocks you, so you can start immediately.
 ### M2
 
 - [x] **Task 12: Scheduled ingest handler** (Darsh owns the infra)
-  - Objective: real NWS alerts flow into the live feed.
-  - Guidance:
-    - Add `src/ingest/handler.ts`, a Lambda handler that runs the NWS normalizer and upserts into DynamoDB by event `id`, so repeated runs don't create duplicates.
-    - If a fetch fails, keep the last data and log the error; never wipe events.
-    - Refresh emPOWER daily.
-  - Tests: the handler runs with saved responses and a mocked DynamoDB client; running it twice gives the same rows.
-  - Demo: real Harris County alerts appear in `GET /events`.
+- Objective: scheduled provider snapshots flow into persistent stores.
+- Guidance:
+  - Add `src/ingest/handler.ts`, a Lambda handler that runs the NWS, CenterPoint, optional DriveTexas,
+    FEMA, and emPOWER adapters and upserts into DynamoDB by stable IDs.
+  - If a fetch fails, keep the last data and log the error; never wipe events.
+  - Refresh emPOWER as part of the scheduled ingest; the current CDK rule runs every five minutes.
+- Tests: the handler runs with saved responses and a mocked DynamoDB client; running it twice gives the same rows.
+- Demo: normalized provider events are persisted for the future `GET /events` path.
+
+- [x] **Data-engine readiness handoff**
+  - Provider links, normalization behavior, snapshots, assumptions, storage, environment variables,
+    freshness/data-quality limitations, and remaining live-operations work are documented in
+    [`docs/DATA.md`](../docs/DATA.md).
+  - The current implementation is prototype-ready, not approved for live emergency decision-making.
 
 ### Stretch
 

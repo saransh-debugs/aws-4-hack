@@ -22,7 +22,7 @@ import { createStubModel } from '../scripts/stub-model';
 const NOW = new Date('2026-10-23T14:15:00.000Z');
 
 // TODO(Tanisha): switch to buildScenario('partial' | 'reopened') once the engine adds them.
-/** Outage and 911 calls, but the bridge is still open: not isolated. */
+/** Outage only, but the bridge is still open: not isolated. */
 const partialEvents = (): DemoEvent[] =>
   buildScenario('escalation').filter((e) => e.type !== 'road_closure');
 

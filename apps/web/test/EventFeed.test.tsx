@@ -27,9 +27,6 @@ const items = () => within(screen.getByRole('list', { name: /events/i })).getAll
 describe('sortEventsNewestFirst', () => {
   it('puts the newest timestamp first', () => {
     expect(sortEventsNewestFirst(ALL).map((e) => e.id)).toEqual([
-      'evt-911-3',
-      'evt-911-2',
-      'evt-911-1',
       'evt-closure-bridge',
       'evt-outage-a',
       'evt-calm-3',
@@ -69,9 +66,9 @@ describe('EventFeed', () => {
     render(<EventFeed events={ALL} onSelect={() => {}} />);
     const buttons = items();
     expect(buttons).toHaveLength(ALL.length);
-    expect(buttons[0]?.textContent).toContain('resident on home oxygen');
-    expect(buttons[0]?.textContent).toContain('Critical');
-    expect(buttons[0]?.className).toContain('severity-critical');
+    expect(buttons[0]?.textContent).toContain('access bridge closed');
+    expect(buttons[0]?.textContent).toContain('High');
+    expect(buttons[0]?.className).toContain('severity-high');
     expect(buttons.at(-1)?.textContent).toContain('Low');
     expect(buttons.at(-1)?.textContent).toContain('evt-calm-1');
   });
@@ -112,7 +109,7 @@ describe('EventFeed', () => {
     const { rerender } = render(<EventFeed events={CALM_EVENTS} onSelect={() => {}} />);
     expect(items()).toHaveLength(3);
     rerender(<EventFeed events={ALL} onSelect={() => {}} />);
-    expect(items()).toHaveLength(8);
-    expect(items()[0]?.textContent).toContain('evt-911-3');
+    expect(items()).toHaveLength(5);
+    expect(items()[0]?.textContent).toContain('access bridge closed');
   });
 });

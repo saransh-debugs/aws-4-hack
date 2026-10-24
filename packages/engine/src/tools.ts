@@ -21,7 +21,7 @@ export interface IsolationResult {
 }
 
 /**
- * Group outage / road_closure / 911 events by zone.
+ * Group outage and road_closure events by zone.
  * Weather events are context only and are not grouped.
  */
 export function correlate(
@@ -54,7 +54,7 @@ export function correlate(
         zoneId: zone.id,
         outageEventIds: inZone.filter((e) => e.type === 'outage').map((e) => e.id),
         closureEventIds: inZone.filter((e) => e.type === 'road_closure').map((e) => e.id),
-        emergencyEventIds: inZone.filter((e) => e.type === '911').map((e) => e.id),
+        emergencyEventIds: [],
       };
     })
     .filter(

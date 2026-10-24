@@ -67,7 +67,7 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
     - Approve button states: idle → loading → "✅ DISPATCHED", with an error state.
     - Toast: "SNS Alert Sent. Recon Drone Deployed."
     - Map:
-      - animated lines between `relatedEventIds`, in the order outage → closure → 911
+      - animated lines between `relatedEventIds`, in the order outage → closure
       - after dispatch, Shelter B turns green
       - a drone path animates toward Zone A
   - Tests: countdown with fake timers; button state machine; approve sends only the checked `actionIds`.
