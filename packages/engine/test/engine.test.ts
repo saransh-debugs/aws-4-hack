@@ -25,6 +25,7 @@ import { normalizeNwsAlerts } from '../src/sources/nws';
 import { ingestNwsEvents } from '../src/ingest/handler';
 import { assessFreshness, validateDataQuality } from '../src';
 import {
+  normalizeCenterPointOutages,
   normalizeDriveTexasConditions,
   normalizeFemaOpenShelters,
   normalizeOperationalEvents,
@@ -235,6 +236,40 @@ describe('source normalizers and ingest', () => {
         lon: -95.37,
         capacity: 100,
         status: 'active',
+      },
+    ]);
+  });
+
+  it('normalizes active CenterPoint ArcGIS outages and ignores restored records', () => {
+    expect(
+      normalizeCenterPointOutages({
+        features: [
+          {
+            attributes: {
+              outage_id: 'cp-1',
+              latitude: 29.76,
+              longitude: -95.37,
+              status: 'Investigating',
+              customers_affected: 250,
+              updated_at: '2026-10-24T14:00:00Z',
+            },
+          },
+          {
+            attributes: {
+              outage_id: 'cp-2',
+              latitude: 29.77,
+              longitude: -95.38,
+              status: 'Restored',
+            },
+          },
+        ],
+      }),
+    ).toMatchObject([
+      {
+        id: 'centerpoint-cp-1',
+        type: 'outage',
+        severity: 'high',
+        description: expect.stringContaining('250 customers affected'),
       },
     ]);
   });

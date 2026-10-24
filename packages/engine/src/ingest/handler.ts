@@ -2,6 +2,7 @@ import type { DemoEvent } from '@gridrisk/shared';
 import type { Shelter } from '@gridrisk/shared';
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 import {
+  fetchCenterPointOutages,
   fetchDriveTexasConditions,
   fetchFemaOpenShelters,
   buildSyntheticUtilityOutage,
@@ -132,6 +133,13 @@ export async function handler(): Promise<{ count: number }> {
     } catch (error) {
       console.error('DriveTexas ingest failed; retaining existing events.', error);
     }
+  }
+  try {
+    events.push(
+      ...(await fetchCenterPointOutages(process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL || undefined)),
+    );
+  } catch (error) {
+    console.error('CenterPoint outage ingest failed; retaining existing events.', error);
   }
   if (process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY === 'true') {
     events.push(buildSyntheticUtilityOutage(process.env.GRIDRISK_SYNTHETIC_ZONE_ID ?? 'zone-a'));

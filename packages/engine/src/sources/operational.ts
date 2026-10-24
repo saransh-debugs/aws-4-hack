@@ -2,6 +2,8 @@ import type { DemoEvent, Shelter } from '@gridrisk/shared';
 import { DemoEventSchema, ShelterSchema } from '@gridrisk/shared';
 
 export const DRIVETEXAS_CONDITIONS_URL = 'https://api.drivetexas.org/api/conditions.geojson';
+export const CENTERPOINT_OUTAGES_URL =
+  'https://gis.centerpointenergy.com/arcgis/rest/services/Outage/OUTAGE_TRACKER_OEP_ALL/MapServer/0/query';
 export const FEMA_OPEN_SHELTERS_URL =
   'https://gis.fema.gov/arcgis/rest/services/NSS/FEMA_NSS/MapServer/0/query';
 
@@ -62,6 +64,136 @@ interface GeoJsonFeatureCollection {
     geometry?: { type?: string; coordinates?: unknown } | null;
     properties?: Record<string, unknown>;
   }>;
+}
+
+interface ArcGisFeature {
+  attributes?: Record<string, unknown>;
+  geometry?: {
+    x?: unknown;
+    y?: unknown;
+    rings?: unknown;
+  } | null;
+}
+
+interface ArcGisFeatureCollection {
+  features?: ArcGisFeature[];
+}
+
+function firstNumber(values: unknown[]): number | null {
+  for (const value of values) {
+    const number = typeof value === 'number' ? value : Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return null;
+}
+
+function arcGisPoint(feature: ArcGisFeature): [number, number] | null {
+  const attributes = feature.attributes ?? {};
+  const lat = firstNumber([
+    attributes.latitude,
+    attributes.lat,
+    attributes.LATITUDE,
+    attributes.LAT,
+  ]);
+  const lon = firstNumber([
+    attributes.longitude,
+    attributes.lon,
+    attributes.lng,
+    attributes.LONGITUDE,
+    attributes.LON,
+    attributes.LNG,
+  ]);
+  if (lat !== null && lon !== null) return [lon, lat];
+
+  const x = firstNumber([feature.geometry?.x]);
+  const y = firstNumber([feature.geometry?.y]);
+  if (x !== null && y !== null && Math.abs(x) <= 180 && Math.abs(y) <= 90) return [x, y];
+  return null;
+}
+
+function outageSeverity(attributes: Record<string, unknown>): DemoEvent['severity'] {
+  const customers = firstNumber([
+    attributes.customers_affected,
+    attributes.affected_customers,
+    attributes.cust_affected,
+    attributes.CUSTOMERS_AFFECTED,
+  ]);
+  const status = String(attributes.status ?? attributes.STATUS ?? '').toLowerCase();
+  if (status.includes('critical') || (customers ?? 0) >= 1000) return 'critical';
+  if (status.includes('major') || (customers ?? 0) >= 100) return 'high';
+  return 'low';
+}
+
+/** Normalize CenterPoint's public ArcGIS outage tracker into outage events. */
+export function normalizeCenterPointOutages(payload: ArcGisFeatureCollection): DemoEvent[] {
+  return (payload.features ?? []).flatMap((feature, index) => {
+    const attributes = feature.attributes ?? {};
+    const point = arcGisPoint(feature);
+    if (!point) return [];
+    const status = String(attributes.status ?? attributes.STATUS ?? '').toLowerCase();
+    if (status.includes('restored') || status.includes('closed') || status.includes('complete')) {
+      return [];
+    }
+    const id = String(
+      attributes.outage_id ??
+        attributes.outageid ??
+        attributes.OUTAGE_ID ??
+        attributes.objectid ??
+        `centerpoint-outage-${index}`,
+    );
+    const customers = firstNumber([
+      attributes.customers_affected,
+      attributes.affected_customers,
+      attributes.cust_affected,
+      attributes.CUSTOMERS_AFFECTED,
+    ]);
+    const description = String(
+      attributes.description ??
+        attributes.crew_status ??
+        attributes.status ??
+        'CenterPoint electric outage',
+    );
+    const timestampValue =
+      attributes.updated_at ??
+      attributes.update_time ??
+      attributes.last_update ??
+      attributes.start_time ??
+      attributes.OUTAGE_START;
+    const parsedTimestamp = timestampValue ? new Date(String(timestampValue)) : null;
+    const timestamp =
+      parsedTimestamp && !Number.isNaN(parsedTimestamp.getTime())
+        ? parsedTimestamp.toISOString()
+        : undefined;
+    return [
+      {
+        id: `centerpoint-${id}`,
+        type: 'outage' as const,
+        lon: point[0],
+        lat: point[1],
+        description:
+          customers === null ? description : `${description} (${customers} customers affected)`,
+        severity: outageSeverity(attributes),
+        ...(timestamp ? { timestamp } : {}),
+      },
+    ];
+  });
+}
+
+export async function fetchCenterPointOutages(
+  url = CENTERPOINT_OUTAGES_URL,
+  fetchImpl: typeof fetch = fetch,
+): Promise<DemoEvent[]> {
+  const params = new URLSearchParams({
+    where: '1=1',
+    outFields: '*',
+    returnGeometry: 'true',
+    f: 'json',
+  });
+  const response = await fetchImpl(`${url}?${params}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error(`CenterPoint outage request failed: ${response.status}`);
+  return normalizeCenterPointOutages((await response.json()) as ArcGisFeatureCollection);
 }
 
 function severityFromRoadProperties(properties: Record<string, unknown>): DemoEvent['severity'] {
