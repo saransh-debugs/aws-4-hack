@@ -92,31 +92,43 @@ flowchart LR
 
 ## Tasks
 
-| #   | Task                                                                     | Owner                | Milestone |
-| --- | ------------------------------------------------------------------------ | -------------------- | --------- |
-| 1   | Monorepo scaffold, shared contracts, stubs, CI                           | Bootstrap (**done**) | M0        |
-| 2   | App shell, theme, Zustand store, MockAdapter, dev toolbar                | Bushra               | M1        |
-| 3   | MapComponent (Amazon Location dark map style + offline fallback)         | Bushra               | M1        |
-| 4   | EventFeed                                                                | Bushra               | M1        |
-| 5   | AlertCard, countdown, approve states, connecting lines, dispatch visuals | Bushra               | M2        |
-| 6   | Normalizers (NWS, emPOWER), snapshots, scenarios                         | Tanisha              | M1        |
-| 7   | Deterministic risk engine (Turf.js)                                      | Tanisha              | M1        |
-| 8   | Agent core: Bedrock Converse tool loop                                   | Saransh              | M1        |
-| 9   | Grounding validator, template fallback, evals                            | Saransh              | M2        |
-| 10  | Core infra: DynamoDB, HTTP API + Cognito, read/simulate Lambdas          | Darsh                | M1        |
-| 11  | Step Functions human approval + SNS dispatch                             | Darsh                | M2        |
-| 12  | Scheduled real-data ingest                                               | Tanisha + Darsh      | M2        |
-| 13  | LiveAdapter + Cognito sign-in in web                                     | Bushra + Darsh       | M2/M3     |
-| 14  | Real agent in RunAgent Lambda                                            | Saransh + Darsh      | M3        |
-| 15  | Hosting, Playwright e2e, CI/CD                                           | Darsh                | M3        |
-| 16  | Hardening: reset hook, offline check, runbook, 5× reliability run        | All                  | M3        |
+| #   | Task                                                                     | Owner                                  | Milestone |
+| --- | ------------------------------------------------------------------------ | -------------------------------------- | --------- |
+| 1   | Monorepo scaffold, shared contracts, stubs, CI                           | Bootstrap (**done**)                   | M0        |
+| 2   | App shell, theme, Zustand store, MockAdapter, dev toolbar                | Bushra                                 | M1        |
+| 3   | MapComponent (Amazon Location dark map style + offline fallback)         | Bushra                                 | M1        |
+| 4   | EventFeed                                                                | Saransh                                | M1        |
+| 5   | AlertCard, countdown, approve states, connecting lines, dispatch visuals | Bushra                                 | M2        |
+| 6   | Normalizers (NWS, emPOWER), snapshots, scenarios                         | Tanisha                                | M1        |
+| 7   | Deterministic risk engine (Turf.js)                                      | Tanisha                                | M1        |
+| 8   | Agent core: Bedrock Converse tool loop                                   | All (A1 T, A3 S)                       | M1        |
+| 9   | Grounding validator, template fallback, evals                            | All (A2 B, A4 D)                       | M2        |
+| 10  | Core infra: DynamoDB, HTTP API + Cognito, read/simulate Lambdas          | Darsh                                  | M1        |
+| 11  | Step Functions human approval + SNS dispatch                             | Darsh (+ Saransh: approve handler)     | M2        |
+| 12  | Scheduled real-data ingest                                               | Tanisha + Darsh                        | M2        |
+| 13  | LiveAdapter + Cognito sign-in in web                                     | Saransh (13a), Bushra + Darsh (13b)    | M2/M3     |
+| 14  | Real agent in RunAgent Lambda                                            | Saransh + Darsh                        | M3        |
+| 15  | Hosting, Playwright e2e, CI/CD                                           | Darsh (+ Saransh: e2e)                 | M3        |
+| 16  | Hardening: reset hook, offline check, runbook, 5× reliability run        | All (Tanisha: offline check + runbook) | M3        |
 
 **Sequencing.** Task 1 was done at bootstrap. The tracks then run in parallel:
 
-- Bushra: 2 → 5
-- Tanisha: 6 → 7 → 12
-- Saransh: 8 → 9
-- Darsh: 10 → 11
+- Bushra: 2 → 3 → 5 → 13b, plus agent slice A2
+- Tanisha: 6 → 7 → 12, plus agent slice A1 and the Task 16 offline check + runbook
+- Saransh: agent A0 → A3, plus 4 → 13a → approve handler (11) → trace panel → e2e (15)
+- Darsh: 10 → 11 → 14 → 15, plus agent slice A4
+
+The agent is split across all four (A1–A4, see [todo/saransh-agent.md](todo/saransh-agent.md)),
+and tasks were moved so the total effort is roughly equal:
+
+| Person  | Own track                                               | Agent slice | Rough effort |
+| ------- | ------------------------------------------------------- | ----------- | ------------ |
+| Tanisha | Scenarios, 6, 7, 12 handler, offline + runbook          | A1          | ~12 pts      |
+| Bushra  | 2, 3, 5, 13b                                            | A2          | ~13 pts      |
+| Saransh | Coordination, 4, 13a, approve handler, trace panel, e2e | A0 + A3     | ~13 pts      |
+| Darsh   | 10, 11, 12 infra, 14, 15 hosting/deploy, 16             | A4          | ~13 pts      |
+
+Points are rough (1 pt ≈ 1–2 focused hours). Rebalance at each milestone if someone is ahead or behind.
 
 Integration comes last: 13 → 14 → 15 → 16. Handoffs and stubs are listed in [docs/HANDOFFS.md](docs/HANDOFFS.md).
 
