@@ -104,16 +104,18 @@ records that disappear from a provider remain in DynamoDB unless a future cleanu
 
 [`infra/lib/gridrisk-stack.ts`](../infra/lib/gridrisk-stack.ts) creates:
 
-| Resource         | Key / contents                                                                                                       | Retention                                                              |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `EventsTable`    | Partition key `id`; event fields stored as strings: type, lat, lon, description, severity, optional zoneId/timestamp | DynamoDB on-demand, point-in-time recovery, retained on stack deletion |
-| `SheltersTable`  | Partition key `id`; name, lat, lon, capacity, status                                                                 | DynamoDB on-demand, point-in-time recovery, retained                   |
-| `SnapshotsTable` | Partition key `id`; `generatedAt` and serialized `payload`                                                           | DynamoDB on-demand, point-in-time recovery, retained                   |
-| `IngestFunction` | Node.js 22 Lambda, 512 MB, 60-second timeout                                                                         | Writes to all three tables                                             |
-| `IngestSchedule` | EventBridge rule, every five minutes                                                                                 | Invokes `IngestFunction`                                               |
+| Resource         | Key / contents                                                                                                       | Retention                                                                 |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `EventsTable`    | Partition key `id`; event fields stored as strings: type, lat, lon, description, severity, optional zoneId/timestamp | DynamoDB on-demand, point-in-time recovery, retained on stack deletion    |
+| `AlertsTable`    | Alert records and approval/debounce state used by the agent and human-approval workflow                              | DynamoDB on-demand; managed by the cloud/agent track                      |
+| `SheltersTable`  | Partition key `id`; name, lat, lon, capacity, status                                                                 | DynamoDB on-demand, point-in-time recovery, retained                      |
+| `SnapshotsTable` | Partition key `id`; `generatedAt` and serialized `payload`                                                           | DynamoDB on-demand, point-in-time recovery, retained                      |
+| `IngestFn`       | Node.js 22 Lambda, 512 MB, 60-second timeout                                                                         | Runs the engine ingest handler and writes events, shelters, and snapshots |
+| `IngestSchedule` | EventBridge Scheduler, every five minutes                                                                            | Invokes `IngestFn`                                                        |
 
-The current stack only provisions the ingest resources. API Gateway, Cognito, alert persistence,
-Step Functions approval, and SNS dispatch are separate cloud work and are not part of the data engine.
+The stack also provisions API Gateway/Cognito, alert persistence, Step Functions approval, and SNS
+dispatch for the broader application. Those resources are outside the deterministic data engine, but the
+ingest handler now runs inside the same deployed stack.
 
 ## Configuration
 

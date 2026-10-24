@@ -1,0 +1,56 @@
+name: Deploy
+
+# Task 15: deploy on merge to main using GitHub OIDC — no long-lived AWS keys.
+# The workflow assumes an IAM role via OIDC; set these repo-level variables/secrets:
+#   vars.AWS_DEPLOY_ROLE_ARN   e.g. arn:aws:iam::<account>:role/gridrisk-github-deploy
+#   vars.AWS_REGION            e.g. us-east-1  (defaults to us-east-1 if unset)
+#   vars.WEB_ORIGIN            the deployed web origin, for CORS + Location key referrers
+#   vars.DISPATCH_EMAIL        (optional) email subscribed to the dispatch SNS topic
+#
+# The role's trust policy must allow this repo's OIDC subject, e.g.
+#   token.actions.githubusercontent.com:sub = repo:<org>/<repo>:ref:refs/heads/main
+# and grant the permissions CDK needs (CloudFormation + the resources in the stack).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # required for OIDC
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Don't attempt a deploy unless the role ARN is configured.
+    if: ${{ vars.AWS_DEPLOY_ROLE_ARN != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: CDK synth
+        run: npm run synth -w @gridrisk/infra
+
+      - name: CDK deploy
+        env:
+          WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
+          DISPATCH_EMAIL: ${{ vars.DISPATCH_EMAIL }}
+        run: npx cdk deploy --require-approval never --app "npx tsx bin/app.ts"
+        working-directory: infra
