@@ -37,6 +37,7 @@ export interface RunAgentDeps {
   shelters?: Shelter[];
   roads?: RoadSegment[];
   patientCounts?: PatientCount[];
+  patientSnapshot?: { generatedAt: string; confidence: 'low' | 'medium' | 'high' };
   now?: () => Date;
   config?: EngineConfig;
   bedrockClient?: ConverseClient;
@@ -73,6 +74,7 @@ export async function runAgent(
     shelters,
     roads: deps.roads,
     patientCounts: deps.patientCounts,
+    patientSnapshot: deps.patientSnapshot,
   }).find((r) => r.zoneId === zone.id);
   if (!result?.isolated) return null;
 

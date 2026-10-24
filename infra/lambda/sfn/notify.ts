@@ -2,7 +2,7 @@
  * Step Functions Dispatch branch: SNS publish.
  * Publishes the approved notification request to the dispatch SNS topic (email/SMS subscription).
  */
-import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import type { AlertCardData } from '@gridrisk/shared';
 import { ddb, ALERTS_TABLE, requireEnv } from '../shared/ddb';
@@ -13,7 +13,11 @@ interface Input {
   alertId: string;
 }
 
-export async function handler(input: Input): Promise<{ published: boolean }> {
+export async function handler(input: Input): Promise<{
+  requestId: string;
+  status: string;
+  createdAt: string;
+}> {
   const topicArn = requireEnv('DISPATCH_TOPIC_ARN');
 
   const res = await ddb.send(
@@ -31,7 +35,7 @@ export async function handler(input: Input): Promise<{ published: boolean }> {
     `Approved requests: ${alert.proposedActions.map((a) => a.label).join('; ')}`,
   ];
 
-  await sns.send(
+  const result = await sns.send(
     new PublishCommand({
       TopicArn: topicArn,
       Subject: alert.title.slice(0, 100),
@@ -39,5 +43,21 @@ export async function handler(input: Input): Promise<{ published: boolean }> {
     }),
   );
 
-  return { published: true };
+  const createdAt = new Date().toISOString();
+  const requestId = result.MessageId ?? `notification-request#${input.alertId}`;
+  await ddb.send(
+    new PutCommand({
+      TableName: ALERTS_TABLE(),
+      Item: {
+        id: `notification-request#${input.alertId}`,
+        kind: 'notification_request',
+        requestId,
+        alertId: input.alertId,
+        status: 'sent',
+        createdAt,
+      },
+      ConditionExpression: 'attribute_not_exists(id)',
+    }),
+  );
+  return { requestId, status: 'sent', createdAt };
 }

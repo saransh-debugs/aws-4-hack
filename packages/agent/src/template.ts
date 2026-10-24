@@ -47,6 +47,11 @@ export function buildTemplateAlert(result: EngineResult, options: TemplateOption
       `Planning estimate only: the remaining response window may range from ${formatDuration(result.isolationWindowRangeMinutes.min)} to ${formatDuration(result.isolationWindowRangeMinutes.max)} because backup and response times are not clinically validated.`,
     );
   }
+  if (result.patientSnapshot) {
+    points.push(
+      `Estimated ${result.dependentPatients} electricity-dependent beneficiaries from the ${result.patientSnapshot.generatedAt.slice(0, 10)} snapshot; confidence: ${result.patientSnapshot.confidence}.`,
+    );
+  }
 
   // Fixed fallback requests: the workflow records a shelter request and drone mission request.
   const proposedActions = buildProposedActions(['activate_shelter', 'dispatch_drone'], {
@@ -65,6 +70,7 @@ export function buildTemplateAlert(result: EngineResult, options: TemplateOption
     isolationWindowMinutes: result.isolationWindowMinutes,
     isolationWindowRangeMinutes: result.isolationWindowRangeMinutes,
     uncertainty: 'planning-estimate',
+    ...(result.patientSnapshot ? { patientSnapshot: result.patientSnapshot } : {}),
     proposedActions,
     relatedEventIds: [
       ...result.outageEventIds,

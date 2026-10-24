@@ -12,7 +12,7 @@
  */
 import { GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
-import { MapDataSchema, type AlertCardData, type DemoEvent } from '@gridrisk/shared';
+import { GeographyRegistrySchema, type AlertCardData, type DemoEvent } from '@gridrisk/shared';
 import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
 import { runAgent, type AgentLogger } from '@gridrisk/agent';
 import { DEFAULT_CONFIG } from '@gridrisk/engine';
@@ -51,19 +51,21 @@ export async function handler(input: Input): Promise<Output> {
   if (process.env.GEOGRAPHY_TABLE) {
     const geography = await ddb.send(new ScanCommand({ TableName: GEOGRAPHY_TABLE() }));
     const payload = (geography.Items ?? [])[0]?.payload;
-    mapData = MapDataSchema.parse(payload ? JSON.parse(String(payload)) : undefined);
+    mapData = GeographyRegistrySchema.parse(payload ? JSON.parse(String(payload)) : undefined);
   }
   const snapshot = process.env.SNAPSHOTS_TABLE
     ? await ddb.send(
         new GetCommand({ TableName: requireEnv('SNAPSHOTS_TABLE'), Key: { id: 'empower' } }),
       )
     : undefined;
-  const patientCounts = snapshot?.Item?.payload
-    ? (JSON.parse(String(snapshot.Item.payload)) as Array<{
-        zip: string;
-        electricityDependentCount: number;
-      }>)
+  const patientSnapshot = snapshot?.Item?.payload
+    ? (JSON.parse(String(snapshot.Item.payload)) as {
+        generatedAt: string;
+        confidence: 'low' | 'medium' | 'high';
+        counts: Array<{ zip: string; electricityDependentCount: number }>;
+      })
     : undefined;
+  const patientCounts = patientSnapshot?.counts;
 
   const alert = await runAgent(
     { zoneId: input.zoneId, events },
@@ -75,6 +77,9 @@ export async function handler(input: Input): Promise<Output> {
       roads: mapData.roads,
       shelters: mapData.shelters,
       patientCounts,
+      patientSnapshot: patientSnapshot
+        ? { generatedAt: patientSnapshot.generatedAt, confidence: patientSnapshot.confidence }
+        : undefined,
       config: {
         avgBackupMinutes: minutes(
           'GRIDRISK_BACKUP_MINUTES_NOMINAL',

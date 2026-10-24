@@ -11,7 +11,9 @@ interface Input {
   alertId: string;
 }
 
-export async function handler(input: Input): Promise<{ activatedShelterIds: string[] }> {
+export async function handler(input: Input): Promise<{
+  requests: Array<{ requestId: string; shelterId: string; status: string; createdAt: string }>;
+}> {
   const table = ALERTS_TABLE();
   const res = await ddb.send(new GetCommand({ TableName: table, Key: { id: input.alertId } }));
   const alert = res.Item as AlertCardData | undefined;
@@ -22,21 +24,42 @@ export async function handler(input: Input): Promise<{ activatedShelterIds: stri
     .map((a) => String((a.params as { shelterId?: unknown }).shelterId ?? ''))
     .filter(Boolean);
 
+  const requests = [];
   for (const shelterId of shelterIds) {
+    const createdAt = new Date().toISOString();
+    const requestId = `shelter-request#${input.alertId}#${shelterId}`;
+    let status = 'request_created';
+    let externalRequestId: string | undefined;
+    const endpoint = process.env.GRIDRISK_SHELTER_ACTION_URL;
+    if (endpoint) {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestId },
+        body: JSON.stringify({ requestId, alertId: input.alertId, shelterId }),
+      });
+      if (!response.ok) throw new Error(`Shelter integration failed: ${response.status}`);
+      const payload = (await response.json()) as { requestId?: string; status?: string };
+      externalRequestId = payload.requestId;
+      status = payload.status ?? 'submitted';
+    }
     await ddb.send(
       new PutCommand({
         TableName: table,
         Item: {
-          id: `shelter#${shelterId}`,
+          id: requestId,
           kind: 'shelter_status',
+          requestId,
           shelterId,
-          status: 'activation_requested',
-          activatedAt: new Date().toISOString(),
+          status,
+          ...(externalRequestId ? { externalRequestId } : {}),
+          createdAt,
           alertId: input.alertId,
         },
+        ConditionExpression: 'attribute_not_exists(id)',
       }),
     );
+    requests.push({ requestId, shelterId, status, createdAt });
   }
 
-  return { activatedShelterIds: shelterIds };
+  return { requests };
 }

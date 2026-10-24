@@ -15,6 +15,7 @@ export interface AnalyzeOptions {
   shelters?: Shelter[];
   roads?: RoadSegment[];
   patientCounts?: PatientCount[];
+  patientSnapshot?: { generatedAt: string; confidence: 'low' | 'medium' | 'high' };
 }
 
 /**
@@ -62,6 +63,7 @@ export function analyze(
           : {}),
         uncertainty: 'planning-estimate' as const,
         candidateShelterIds: findShelters(zone, shelters).map((s) => s.id),
+        ...(options.patientSnapshot ? { patientSnapshot: options.patientSnapshot } : {}),
       },
     ];
   });

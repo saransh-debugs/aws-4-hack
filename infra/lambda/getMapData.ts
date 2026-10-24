@@ -1,7 +1,7 @@
 /** GET /map-data -> versioned operational geography and shelter registry. */
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { MapDataSchema } from '@gridrisk/shared';
+import { GeographyRegistrySchema } from '@gridrisk/shared';
 import { ddb, GEOGRAPHY_TABLE } from './shared/ddb';
 import { fail, isAuthenticated, ok, withErrorHandling } from './shared/http';
 
@@ -16,7 +16,7 @@ export const handler = withErrorHandling(
     } catch {
       payload = undefined;
     }
-    const parsed = MapDataSchema.safeParse(payload);
+    const parsed = GeographyRegistrySchema.safeParse(payload);
     if (!parsed.success) return fail('INTERNAL', 'Operational geography is unavailable');
     return ok(parsed.data);
   },

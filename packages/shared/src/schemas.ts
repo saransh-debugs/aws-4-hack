@@ -42,6 +42,14 @@ export const DemoEventSchema = z.object({
   /** ISO-8601 timestamp. */
   timestamp: z.iso.datetime().optional(),
   source: z.string().optional(),
+  providerId: z.string().optional(),
+  roadId: z.string().optional(),
+  status: z.enum(['active', 'inactive', 'unknown']).optional(),
+  closureType: z.string().optional(),
+  geometry: LineStringSchema.optional(),
+  observedAt: z.iso.datetime().optional(),
+  updatedAt: z.iso.datetime().optional(),
+  providerExpiresAt: z.iso.datetime().optional(),
   ingestedAt: z.iso.datetime().optional(),
   expiresAt: z.number().int().positive().optional(),
 });
@@ -79,6 +87,7 @@ export const RoadSegmentSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   line: LineStringSchema,
+  source: z.string().optional(),
 });
 export type RoadSegment = z.infer<typeof RoadSegmentSchema>;
 
@@ -88,10 +97,13 @@ export type ShelterStatus = z.infer<typeof ShelterStatusSchema>;
 export const ShelterSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  address: z.string().optional(),
   lat: z.number(),
   lon: z.number(),
   capacity: z.number().int().nonnegative(),
   status: ShelterStatusSchema,
+  source: z.string().optional(),
+  observedAt: z.iso.datetime().optional(),
 });
 export type Shelter = z.infer<typeof ShelterSchema>;
 
@@ -115,6 +127,33 @@ export const MapDataSchema = z.object({
 });
 export type MapData = z.infer<typeof MapDataSchema>;
 
+/** Required persisted metadata for an approved operational geography version. */
+export const GeographyRegistrySchema = MapDataSchema.extend({
+  source: z.string().min(1),
+  publishedAt: z.iso.datetime(),
+  effectiveFrom: z.iso.datetime(),
+  effectiveTo: z.iso.datetime(),
+  approvedBy: z.string().min(1),
+  zipToZone: z.record(z.string().regex(/^\d{5}$/), z.string().min(1)),
+  shelterToZone: z.record(z.string().min(1), z.string().min(1)),
+});
+export type GeographyRegistry = z.infer<typeof GeographyRegistrySchema>;
+
+export const PatientSnapshotSchema = z.object({
+  source: z.string().min(1),
+  generatedAt: z.iso.datetime(),
+  coverageFrom: z.iso.datetime().optional(),
+  coverageTo: z.iso.datetime().optional(),
+  confidence: z.enum(['low', 'medium', 'high']),
+  counts: z.array(
+    z.object({
+      zip: z.string().regex(/^\d{5}$/),
+      electricityDependentCount: z.number().int().nonnegative(),
+    }),
+  ),
+});
+export type PatientSnapshot = z.infer<typeof PatientSnapshotSchema>;
+
 // ---------- Engine output ----------
 
 export const EngineResultSchema = z.object({
@@ -135,6 +174,9 @@ export const EngineResultSchema = z.object({
     .optional(),
   uncertainty: z.literal('planning-estimate').optional(),
   candidateShelterIds: z.array(z.string()),
+  patientSnapshot: z
+    .object({ generatedAt: z.iso.datetime(), confidence: z.enum(['low', 'medium', 'high']) })
+    .optional(),
 });
 export type EngineResult = z.infer<typeof EngineResultSchema>;
 
@@ -154,7 +196,13 @@ export const ProposedActionSchema = z.object({
 });
 export type ProposedAction = z.infer<typeof ProposedActionSchema>;
 
-export const AlertStatusSchema = z.enum(['pending', 'approved', 'dispatched']);
+export const AlertStatusSchema = z.enum([
+  'pending',
+  'acknowledged',
+  'escalated',
+  'approved',
+  'dispatched',
+]);
 export type AlertStatus = z.infer<typeof AlertStatusSchema>;
 
 export const ToolTraceEntrySchema = z.object({
@@ -174,6 +222,9 @@ export const AlertCardDataSchema = z.object({
     .object({ min: z.number().nonnegative(), max: z.number().nonnegative() })
     .optional(),
   uncertainty: z.literal('planning-estimate').optional(),
+  patientSnapshot: z
+    .object({ generatedAt: z.iso.datetime(), confidence: z.enum(['low', 'medium', 'high']) })
+    .optional(),
   proposedActions: z.array(ProposedActionSchema),
   /** Event ids the UI draws connecting lines between. */
   relatedEventIds: z.array(z.string()),
@@ -209,6 +260,11 @@ export type GetAlertsResponse = z.infer<typeof GetAlertsResponseSchema>;
 export const ApproveRequestSchema = z.object({ actionIds: z.array(z.string()).min(1) });
 export type ApproveRequest = z.infer<typeof ApproveRequestSchema>;
 
+export const AlertStatusUpdateSchema = z.object({
+  status: z.enum(['acknowledged', 'escalated']),
+});
+export type AlertStatusUpdate = z.infer<typeof AlertStatusUpdateSchema>;
+
 export const ApproveResponseSchema = z.object({ alert: AlertCardDataSchema });
 export type ApproveResponse = z.infer<typeof ApproveResponseSchema>;
 
@@ -218,7 +274,7 @@ export type SimulateResponse = z.infer<typeof SimulateResponseSchema>;
 export const GetHealthResponseSchema = z.object({ health: z.array(SourceHealthSchema) });
 export type GetHealthResponse = z.infer<typeof GetHealthResponseSchema>;
 
-export const GetMapDataResponseSchema = MapDataSchema;
+export const GetMapDataResponseSchema = GeographyRegistrySchema;
 export type GetMapDataResponse = z.infer<typeof GetMapDataResponseSchema>;
 
 export const ApiErrorSchema = z.object({
@@ -244,6 +300,8 @@ export const API_ROUTES = {
   reset: { method: 'POST', path: '/simulate/reset' },
   getHealth: { method: 'GET', path: '/health' },
   getMapData: { method: 'GET', path: '/map-data' },
+  acknowledgeAlert: { method: 'POST', path: '/alerts/{id}/acknowledge' },
+  escalateAlert: { method: 'POST', path: '/alerts/{id}/escalate' },
 } as const;
 export type ApiRouteName = keyof typeof API_ROUTES;
 

@@ -274,14 +274,14 @@ describe('source normalizers and ingest', () => {
         ],
       }),
     ).toEqual([
-      {
+      expect.objectContaining({
         id: 'fema-7',
         name: 'FEMA Shelter',
         lat: 29.76,
         lon: -95.37,
         capacity: 100,
         status: 'active',
-      },
+      }),
     ]);
   });
 
@@ -289,7 +289,7 @@ describe('source normalizers and ingest', () => {
     const events = normalizeTranStarLaneClosures(`
       <rss><channel><item>
         <guid>lane-123</guid>
-        <title>Buffalo Bayou bridge closed</title>
+        <title>IH-10 East Eastbound Connector Ramp To IH-610 Northbound closed</title>
         <description>Flooding has closed the bridge.</description>
         <pubDate>Sat, 24 Oct 2026 14:00:00 GMT</pubDate>
         <georss:point>29.7632 -95.38</georss:point>

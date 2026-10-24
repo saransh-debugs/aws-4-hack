@@ -261,6 +261,8 @@ export function normalizeTranStarLaneClosures(xml: string): DemoEvent[] {
     const title = xmlValue(item, 'title') ?? 'Houston TranStar lane closure';
     const description = xmlValue(item, 'description') ?? title;
     if (/status:\s*inactive/i.test(description)) return [];
+    const roadId = tranStarRoadId(title);
+    if (!roadId) return [];
     const point = xmlValue(item, 'georss:point') ?? xmlValue(item, 'point');
     const coordinates = point?.split(/\s+/).map(Number) ?? tranStarReferencePoint(title);
     if (!coordinates || coordinates.length < 2 || !coordinates.every(Number.isFinite)) return [];
@@ -269,6 +271,10 @@ export function normalizeTranStarLaneClosures(xml: string): DemoEvent[] {
     return [
       {
         id: `transtar-${xmlValue(item, 'guid') ?? index}`,
+        providerId: xmlValue(item, 'guid') ?? `transtar-${index}`,
+        roadId,
+        status: 'active' as const,
+        closureType: /flood/i.test(description) ? 'flood' : 'lane_closure',
         type: 'road_closure' as const,
         lat: lat!,
         lon: lon!,
@@ -277,6 +283,14 @@ export function normalizeTranStarLaneClosures(xml: string): DemoEvent[] {
           ? ('high' as const)
           : ('low' as const),
         source: 'houston-transtar',
+        observedAt:
+          timestamp && !Number.isNaN(Date.parse(timestamp))
+            ? new Date(timestamp).toISOString()
+            : new Date().toISOString(),
+        updatedAt:
+          timestamp && !Number.isNaN(Date.parse(timestamp))
+            ? new Date(timestamp).toISOString()
+            : new Date().toISOString(),
         ...(timestamp && !Number.isNaN(Date.parse(timestamp))
           ? { timestamp: new Date(timestamp).toISOString() }
           : {}),
@@ -290,6 +304,11 @@ export function normalizeTranStarLaneClosures(xml: string): DemoEvent[] {
 function tranStarReferencePoint(title: string): [number, number] | undefined {
   if (/IH-10.*IH-610|IH-610.*IH-10/i.test(title)) return [29.765, -95.345];
   if (/IH-45|US-59|IH-69/i.test(title)) return [29.755, -95.35];
+  return undefined;
+}
+
+function tranStarRoadId(title: string): string | undefined {
+  if (/IH-10.*IH-610|IH-610.*IH-10/i.test(title)) return 'road-i10-east-downtown';
   return undefined;
 }
 
@@ -332,6 +351,7 @@ export function normalizeFemaOpenShelters(payload: { features?: FemaShelterRow[]
     const parsed = ShelterSchema.safeParse({
       id: `fema-${String(attributes.shelter_id ?? attributes.objectid ?? '')}`,
       name: String(attributes.shelter_name ?? 'Unnamed FEMA shelter'),
+      address: String(attributes.address ?? attributes.street_address ?? ''),
       lat,
       lon,
       capacity: Number.isFinite(capacity) ? Math.max(0, Math.round(capacity)) : 0,
@@ -339,6 +359,8 @@ export function normalizeFemaOpenShelters(payload: { features?: FemaShelterRow[]
         String(attributes.shelter_status_code ?? attributes.status).toUpperCase() === 'OPEN'
           ? 'active'
           : 'standby',
+      source: 'fema-nss',
+      observedAt: new Date().toISOString(),
     });
     return parsed.success && parsed.data.id !== 'fema-' ? [parsed.data] : [];
   });
@@ -352,7 +374,7 @@ export async function fetchFemaOpenShelters(
   const params = new URLSearchParams({
     where: `state='${state}' AND county_parish='${county}'`,
     outFields:
-      'shelter_id,shelter_name,latitude,longitude,post_impact_capacity,evacuation_capacity,shelter_status_code',
+      'shelter_id,shelter_name,address,street_address,latitude,longitude,post_impact_capacity,evacuation_capacity,shelter_status_code,last_update',
     returnGeometry: 'false',
     f: 'json',
   });

@@ -67,6 +67,11 @@ separate live geography inputs. Offline mode intentionally falls back to the Hou
 The first operating slice is explicitly limited to Downtown Houston until the fresh-data proof is
 completed in the deployed environment.
 
+Each persisted registry includes `version`, `source`, `publishedAt`, `effectiveFrom`, `effectiveTo`,
+`approvedBy`, `zones`, `roads`, `shelters`, `zipToZone`, and `shelterToZone`. The current default
+approval value is `pending-emergency-management-review`; deployment must set
+`GRIDRISK_GEOGRAPHY_APPROVED_BY` to the reviewing authority before treating the registry as approved.
+
 ## Provider sources
 
 | Source                       | Link                                                                                                                                                                                                                                            | Data supplied                                                                                                    | Current use                                                                         | Access / caveat                                                                                                                   |
@@ -94,6 +99,10 @@ All currently implemented adapters are in
 The deployed Lambda uses the provider-specific CenterPoint, TranStar, FEMA, NWS, and emPOWER fetchers.
 The generic functions remain reusable seams, but adding an arbitrary URL does not activate a feed without
 a provider-specific normalizer and tests.
+
+Road records expose provider ID, mapped road ID, active status, closure type, source, observed, and
+updated timestamps. TranStar records without a known road mapping are discarded rather than assigned
+an invented coordinate.
 
 ## Runtime ingestion path
 
@@ -159,6 +168,9 @@ to the Lambda where explicitly listed below.
 | `GRIDRISK_SYNTHETIC_ZONE_ID`          | CDK + Lambda         | Zone assigned to the synthetic outage; default `zone-a`                                     |
 | `GRIDRISK_UTILITY_OUTAGES_URL`        | Generic adapter only | Reserved configurable utility feed URL; not automatically wired                             |
 | `GRIDRISK_TRANSTAR_LANE_CLOSURES_URL` | Lambda               | Approved Houston TranStar RSS endpoint; defaults to the public lane-closure feed            |
+| `GRIDRISK_GEOGRAPHY_APPROVED_BY` | CDK + ingest | Reviewing authority recorded on the geography version; default blocks approval claims |
+| `GRIDRISK_EMPOWER_COVERAGE_FROM/TO` | Ingest | Optional emPOWER population coverage interval |
+| `GRIDRISK_SHELTER_ACTION_URL` / `GRIDRISK_DRONE_ACTION_URL` | Action Lambdas | Optional approved external action endpoints; idempotent POSTs return external request IDs |
 | `GRIDRISK_SHELTERS_URL`               | Generic adapter only | Reserved configurable shelter feed URL; not automatically wired                             |
 | `GRIDRISK_SNAPSHOT_MAX_AGE_MINUTES`   | Ingest + health API  | Maximum provider age before the health API reports `stale`                                  |
 | `GRIDRISK_GEOGRAPHY_VERSION`          | CDK + ingest         | Version label for the operational geography registry                                        |
@@ -253,14 +265,16 @@ the flag; do not enable it for live operations.
 
 The approval workflow is intentionally honest about its current integration boundary. The
 notification action publishes to the configured SNS topic; the shelter action records an
-`activation_requested` record; and the drone action records a `requested` mission. These are
-auditable requests, not direct control of a shelter, public-alert, or drone system. A real provider
-integration must be added before presenting them as completed field actions.
+request with a deterministic idempotency key; and the drone action records a mission request with the
+same semantics. If `GRIDRISK_SHELTER_ACTION_URL` or `GRIDRISK_DRONE_ACTION_URL` is configured, the
+Lambda sends an idempotent POST and stores the external request ID/status. Without those endpoints,
+the system remains in request-created mode and does not claim that a field action occurred.
 
 Approvals now require membership in the Cognito `gridrisk-operator` group and are recorded in a
-retained audit table with actor, alert, action ids, and timestamp. Run the demo-user setup script
-after deployment to assign the demo account to that group. Regular authenticated users can still
-read current data but cannot approve requests.
+retained audit table with actor, alert, action ids, and timestamp. Cognito groups now include viewer,
+operator, supervisor, and administrator. Acknowledgement is operator-level; escalation is supervisor-
+or-administrator-level. Run the demo-user setup script after deployment to assign the demo account to
+the operator group. Regular authenticated users can still read current data but cannot approve requests.
 
 ### Complete for the grounded prototype
 
@@ -275,26 +289,19 @@ read current data but cannot approve requests.
 
 ### Not ready for live emergency decisions
 
-The next contributor or deployment owner still needs to:
+The following external approvals or deployment actions still cannot be completed from this repository alone:
 
 1. Deploy the stack in an AWS account and verify the CenterPoint endpoint, Cloudflare behavior, response
    schema, coordinate fields, and outage status fields from the Lambda runtime.
-2. Restore a current FEMA shelter/capacity source in the deployment; the live proof on 2026-10-24 returned
-   zero shelters, so the workflow correctly remained not ready for action.
-3. Add provider-specific schema-drift handling and cross-provider conflict rules for CenterPoint/road/shelter
-   records; current normalizers quarantine invalid or unmappable records.
-4. Add operational paging for stale/empty responses and schema changes; the ingest-error CloudWatch alarm and
-   UI health warnings are present, but paging destinations are account-specific.
-5. Expand the zone, road, ZIP, and shelter registry beyond this one Downtown Houston slice only after the
+2. Restore a current FEMA shelter/capacity source in the deployment; the live proof returned zero shelters,
+   so the workflow correctly remains not ready for action.
+3. Configure approved paging destinations for the CloudWatch alarms and health warnings.
+4. Expand the zone, road, ZIP, and shelter registry beyond this one Downtown Houston slice only after the
    live proof passes with shelter data and Houston-area emergency-management stakeholders approve mappings.
-6. Establish evidence-based backup and response-time distributions, document confidence intervals, and replace
+5. Establish evidence-based backup and response-time distributions, document confidence intervals, and replace
    the planning ranges only after clinical/emergency approval.
-7. Add live shelter availability semantics. FEMA evacuation/post-impact capacity is not the same as current
-   open beds, so a shelter should not be treated as available solely because a FEMA row exists.
-8. Connect the recorded notification, shelter, and drone requests to real agency systems if those actions are
-   to be operational rather than auditable requests.
-9. Add a captured CenterPoint response regression test and run the deployment smoke test using read-only
-   provider calls.
+6. Supply approved shelter-management and drone-dispatch endpoints if those requests are to become external
+   operational actions; the code now supports idempotent endpoint calls and external request IDs.
 
 ## Handoff checklist
 

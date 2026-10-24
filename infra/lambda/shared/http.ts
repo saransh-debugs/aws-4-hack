@@ -61,7 +61,24 @@ export function isOperator(event: APIGatewayProxyEventV2): boolean {
     : typeof groups === 'string'
       ? groups.split(',')
       : [];
-  return values.includes(process.env.GRIDRISK_OPERATOR_GROUP ?? 'gridrisk-operator');
+  const allowed = (process.env.GRIDRISK_OPERATOR_GROUP ?? 'gridrisk-operator').split(',');
+  return values.some((value) =>
+    [...allowed, 'gridrisk-supervisor', 'gridrisk-administrator'].includes(value),
+  );
+}
+
+export function isSupervisor(event: APIGatewayProxyEventV2): boolean {
+  if (process.env.GRIDRISK_REQUIRE_OPERATOR_ROLE !== 'true') return true;
+  const claims = (
+    event.requestContext as { authorizer?: { jwt?: { claims?: Record<string, unknown> } } }
+  ).authorizer?.jwt?.claims;
+  const groups = claims?.['cognito:groups'];
+  const values = Array.isArray(groups)
+    ? groups
+    : typeof groups === 'string'
+      ? groups.split(',')
+      : [];
+  return values.includes('gridrisk-supervisor') || values.includes('gridrisk-administrator');
 }
 
 /** Parse a JSON body, returning undefined when the body is empty or invalid JSON. */

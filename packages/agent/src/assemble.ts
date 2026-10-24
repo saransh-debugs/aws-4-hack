@@ -36,6 +36,7 @@ export function assembleAlert(
       ? { isolationWindowRangeMinutes: result.isolationWindowRangeMinutes }
       : {}),
     ...(result.uncertainty ? { uncertainty: result.uncertainty } : {}),
+    ...(result.patientSnapshot ? { patientSnapshot: result.patientSnapshot } : {}),
     proposedActions: buildProposedActions(sub.actionTypes, { zone, shelters, result }),
     relatedEventIds: [
       ...result.outageEventIds,

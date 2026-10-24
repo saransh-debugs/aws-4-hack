@@ -1,5 +1,5 @@
-import type { MapData, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
-import { MapDataSchema } from '@gridrisk/shared';
+import type { GeographyRegistry, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
+import { GeographyRegistrySchema } from '@gridrisk/shared';
 
 /**
  * The first operational slice is deliberately small: the Downtown Houston
@@ -59,7 +59,9 @@ export interface OperationalGeographyValidation {
   errors: string[];
 }
 
-export function validateOperationalGeography(mapData: MapData): OperationalGeographyValidation {
+export function validateOperationalGeography(
+  mapData: GeographyRegistry,
+): OperationalGeographyValidation {
   const errors: string[] = [];
   const roadIds = new Set(mapData.roads.map((road) => road.id));
   const zoneIds = new Set<string>();
@@ -82,11 +84,21 @@ export function validateOperationalGeography(mapData: MapData): OperationalGeogr
 }
 
 /** Build the validated Downtown registry with the latest shelter snapshot. */
-export function buildDowntownHoustonRegistry(shelters: Shelter[] = [], now = new Date()): MapData {
+export function buildDowntownHoustonRegistry(
+  shelters: Shelter[] = [],
+  now = new Date(),
+): GeographyRegistry {
   const zones: Zone[] = [DOWNTOWN_ZONE];
   const roads: RoadSegment[] = [DOWNTOWN_ACCESS_ROAD];
-  const mapData: MapData = {
+  const registry: GeographyRegistry = {
     version: `downtown-houston-${now.toISOString().slice(0, 10)}`,
+    source: 'Houston TranStar, FEMA NSS, HHS emPOWER, and Houston operational GIS registry',
+    publishedAt: now.toISOString(),
+    effectiveFrom: now.toISOString(),
+    effectiveTo: '9999-12-31T23:59:59.000Z',
+    approvedBy: process.env.GRIDRISK_GEOGRAPHY_APPROVED_BY ?? 'pending-emergency-management-review',
+    zipToZone: { '77002': DOWNTOWN_ZONE.id, '77010': DOWNTOWN_ZONE.id },
+    shelterToZone: Object.fromEntries(shelters.map((shelter) => [shelter.id, DOWNTOWN_ZONE.id])),
     operatingAreaId: DOWNTOWN_HOUSTON_AREA_ID,
     operatingAreaName: 'Downtown Houston / East Downtown operating area (ZIPs 77002 and 77010)',
     validatedAt: now.toISOString(),
@@ -98,7 +110,7 @@ export function buildDowntownHoustonRegistry(shelters: Shelter[] = [], now = new
     roads,
     shelters,
   };
-  const parsed = MapDataSchema.safeParse(mapData);
+  const parsed = GeographyRegistrySchema.safeParse(registry);
   if (!parsed.success) throw new Error(`Invalid operational geography: ${parsed.error.message}`);
   const validation = validateOperationalGeography(parsed.data);
   if (!validation.valid)

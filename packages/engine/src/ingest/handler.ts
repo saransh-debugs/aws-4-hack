@@ -1,5 +1,11 @@
 import type { DemoEvent } from '@gridrisk/shared';
-import type { MapData, Shelter, SourceHealth, SourceHealthStatus } from '@gridrisk/shared';
+import type {
+  GeographyRegistry,
+  PatientSnapshot,
+  Shelter,
+  SourceHealth,
+  SourceHealthStatus,
+} from '@gridrisk/shared';
 import {
   DeleteItemCommand,
   DynamoDBClient,
@@ -97,7 +103,7 @@ function healthItemFor(health: SourceHealth): Record<string, { S: string }> {
   };
 }
 
-function geographyItemFor(mapData: MapData): Record<string, { S: string }> {
+function geographyItemFor(mapData: GeographyRegistry): Record<string, { S: string }> {
   return {
     id: { S: 'current' },
     version: { S: mapData.version },
@@ -337,14 +343,34 @@ export async function handler(): Promise<{ count: number }> {
     try {
       const zips = buildDowntownHoustonRegistry().zones.flatMap((zone) => zone.zips);
       const empower = await fetchEmpower(zips);
+      const generatedAt = new Date().toISOString();
+      const snapshot: PatientSnapshot = {
+        source: 'hhs-empower',
+        generatedAt,
+        ...(process.env.GRIDRISK_EMPOWER_COVERAGE_FROM
+          ? { coverageFrom: process.env.GRIDRISK_EMPOWER_COVERAGE_FROM }
+          : {}),
+        ...(process.env.GRIDRISK_EMPOWER_COVERAGE_TO
+          ? { coverageTo: process.env.GRIDRISK_EMPOWER_COVERAGE_TO }
+          : {}),
+        confidence: 'low',
+        counts: empower,
+      };
       await dynamo.send(
         new PutItemCommand({
           TableName: snapshotsTableName,
-          Item: snapshotItemFor('empower', empower, new Date().toISOString()),
+          Item: snapshotItemFor('empower', snapshot, generatedAt),
         }),
+      );
+      await writeHealth(
+        'hhs-empower',
+        empower.length ? 'healthy' : 'empty',
+        empower.length,
+        { tableName: healthTableName },
       );
     } catch (error) {
       console.error('emPOWER snapshot refresh failed; retaining existing snapshot.', error);
+      await writeHealth('hhs-empower', 'error', 0, { tableName: healthTableName }, error);
     }
   }
   return result;

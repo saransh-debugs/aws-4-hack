@@ -133,11 +133,26 @@ export class GridRiskStack extends Stack {
       generateSecret: false,
     });
 
-    new cognito.CfnUserPoolGroup(this, 'OperatorGroup', {
-      userPoolId: userPool.userPoolId,
-      groupName: 'gridrisk-operator',
-      description: 'Can approve and dispatch GridRisk response requests',
-    });
+    for (const [id, groupName, description] of [
+      ['ViewerGroup', 'gridrisk-viewer', 'Can read operational data'],
+      ['OperatorGroup', 'gridrisk-operator', 'Can approve and dispatch GridRisk response requests'],
+      [
+        'SupervisorGroup',
+        'gridrisk-supervisor',
+        'Can approve, acknowledge, and escalate responses',
+      ],
+      [
+        'AdministratorGroup',
+        'gridrisk-administrator',
+        'Can manage GridRisk configuration and access',
+      ],
+    ] as const) {
+      new cognito.CfnUserPoolGroup(this, id, {
+        userPoolId: userPool.userPoolId,
+        groupName,
+        description,
+      });
+    }
 
     const authorizer = new HttpJwtAuthorizer(
       'JwtAuthorizer',
@@ -185,12 +200,19 @@ export class GridRiskStack extends Stack {
     const getMapDataFn = mkFn('GetMapDataFn', 'getMapData.ts', {
       GEOGRAPHY_TABLE: geographyTable.tableName,
     });
+    const updateAlertStatusFn = mkFn('UpdateAlertStatusFn', 'updateAlertStatus.ts', {
+      AUDIT_TABLE: auditTable.tableName,
+      GRIDRISK_OPERATOR_GROUP: 'gridrisk-operator',
+      GRIDRISK_REQUIRE_OPERATOR_ROLE: 'true',
+    });
     const simulateFn = mkFn('SimulateFn', 'simulate.ts');
 
     eventsTable.grantReadData(getEventsFn);
     alertsTable.grantReadData(getAlertsFn);
     healthTable.grantReadData(getHealthFn);
     geographyTable.grantReadData(getMapDataFn);
+    alertsTable.grantReadWriteData(updateAlertStatusFn);
+    auditTable.grantWriteData(updateAlertStatusFn);
     // simulate rewrites events and clears alerts + debounce locks.
     eventsTable.grantReadWriteData(simulateFn);
     alertsTable.grantReadWriteData(simulateFn);
@@ -259,13 +281,17 @@ export class GridRiskStack extends Stack {
     const notifyFn = mkFn('NotifyFn', 'sfn/notify.ts', {
       DISPATCH_TOPIC_ARN: dispatchTopic.topicArn,
     });
-    alertsTable.grantReadData(notifyFn);
+    alertsTable.grantReadWriteData(notifyFn);
     dispatchTopic.grantPublish(notifyFn);
 
-    const activateShelterFn = mkFn('ActivateShelterFn', 'sfn/activateShelter.ts');
+    const activateShelterFn = mkFn('ActivateShelterFn', 'sfn/activateShelter.ts', {
+      GRIDRISK_SHELTER_ACTION_URL: process.env.GRIDRISK_SHELTER_ACTION_URL ?? '',
+    });
     alertsTable.grantReadWriteData(activateShelterFn);
 
-    const droneMissionFn = mkFn('DroneMissionFn', 'sfn/droneMission.ts');
+    const droneMissionFn = mkFn('DroneMissionFn', 'sfn/droneMission.ts', {
+      GRIDRISK_DRONE_ACTION_URL: process.env.GRIDRISK_DRONE_ACTION_URL ?? '',
+    });
     alertsTable.grantReadWriteData(droneMissionFn);
 
     const markDispatchedFn = mkFn('MarkDispatchedFn', 'sfn/markDispatched.ts');
@@ -339,6 +365,19 @@ export class GridRiskStack extends Stack {
       payload: sfn.TaskInput.fromObject({ 'zoneId.$': '$.zoneId' }),
       payloadResponseOnly: true,
     });
+    const releaseZoneLockOnFailureTask = new tasks.LambdaInvoke(this, 'ReleaseZoneLockOnFailure', {
+      lambdaFunction: releaseZoneLockFn,
+      payload: sfn.TaskInput.fromObject({ 'zoneId.$': '$.zoneId' }),
+      payloadResponseOnly: true,
+      resultPath: '$.lockRecovery',
+    });
+    const workflowFailed = new sfn.Fail(this, 'WorkflowFailed', {
+      cause: 'GridRisk workflow failed after automatic zone-lock cleanup',
+    });
+    releaseZoneLockOnFailureTask.next(workflowFailed);
+    runAgentTask.addCatch(releaseZoneLockOnFailureTask, { resultPath: '$.error' });
+    saveAlertTask.addCatch(releaseZoneLockOnFailureTask, { resultPath: '$.error' });
+    dispatchParallel.addCatch(releaseZoneLockOnFailureTask, { resultPath: '$.error' });
 
     const definition = runAgentTask.next(
       new sfn.Choice(this, 'Raised?')
@@ -427,6 +466,16 @@ export class GridRiskStack extends Stack {
       path: '/alerts/{id}/approve',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('ApproveIntegration', approveFn),
+    });
+    httpApi.addRoutes({
+      path: '/alerts/{id}/acknowledge',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration('AcknowledgeAlertIntegration', updateAlertStatusFn),
+    });
+    httpApi.addRoutes({
+      path: '/alerts/{id}/escalate',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration('EscalateAlertIntegration', updateAlertStatusFn),
     });
     httpApi.addRoutes({
       path: '/simulate/{scenario}',
@@ -592,6 +641,8 @@ function handler(event) {
         GRIDRISK_TRANSTAR_LANE_CLOSURES_URL:
           process.env.GRIDRISK_TRANSTAR_LANE_CLOSURES_URL ??
           'https://traffic.houstontranstar.org/data/rss/laneclosures_rss.xml',
+        GRIDRISK_EMPOWER_COVERAGE_FROM: process.env.GRIDRISK_EMPOWER_COVERAGE_FROM ?? '',
+        GRIDRISK_EMPOWER_COVERAGE_TO: process.env.GRIDRISK_EMPOWER_COVERAGE_TO ?? '',
         GRIDRISK_ALLOW_SYNTHETIC_UTILITY: process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY ?? 'false',
         GRIDRISK_SYNTHETIC_ZONE_ID: process.env.GRIDRISK_SYNTHETIC_ZONE_ID ?? 'zone-a',
         GRIDRISK_DEMO_MODE: process.env.GRIDRISK_DEMO_MODE ?? 'false',
@@ -614,6 +665,20 @@ function handler(event) {
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: 'A live GridRisk provider failed during the last ingest window.',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    const providerEmptyMetric = new logs.MetricFilter(this, 'ProviderEmptyMetric', {
+      logGroup: ingestLogGroup,
+      metricNamespace: 'GridRisk/Providers',
+      metricName: 'ProviderEmptyResponses',
+      filterPattern: logs.FilterPattern.literal('"Provider health" "empty"'),
+      metricValue: '1',
+      defaultValue: 0,
+    }).metric({ statistic: 'Sum', period: Duration.minutes(10) });
+    providerEmptyMetric.createAlarm(this, 'ProviderEmptyAlarm', {
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'A live GridRisk provider returned an empty response during ingest.',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
