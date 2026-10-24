@@ -50,6 +50,20 @@ The current fixture geography has two zones and two access roads:
 The fixture shelter is Shelter B with capacity 200. These are not a complete Houston operational
 zone, road, or shelter registry.
 
+## Map/data connection
+
+The frontend map lives in [`apps/web/src/components/MapComponent.tsx`](../apps/web/src/components/MapComponent.tsx).
+It consumes the same `DemoEvent`, `Zone`, `RoadSegment`, and `Shelter` objects used by the engine:
+
+- event points are colored by severity and can be clicked to select an event;
+- selecting an event in the event feed flies the map to its coordinates;
+- zone polygons, access roads, and shelter points are rendered as GeoJSON layers;
+- `VITE_LOCATION_API_KEY` plus `VITE_LOCATION_MAP_NAME` selects an Amazon Location style;
+- without those values, the map uses the bundled offline dark style and still renders the data layers.
+
+This visual layer does not change the deterministic engine or provider data. It is a read-only view of
+the current adapter/fixture data. Real API event loading and alert controls remain separate UI work.
+
 ## Provider sources
 
 | Source                       | Link                                                                                                                                                                                                                                            | Data supplied                                                                                                    | Current use                                                                         | Access / caveat                                                                                                  |
