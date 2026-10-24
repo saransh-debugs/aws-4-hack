@@ -1,4 +1,5 @@
 import type { DataAdapter, DataMode } from './DataAdapter';
+import { MockAdapter } from './MockAdapter';
 
 function notImplemented(mode: DataMode): DataAdapter {
   const fail = (method: string) => () =>
@@ -18,10 +19,10 @@ export function parseDataMode(value: string | undefined): DataMode {
 
 /**
  * Picks the adapter from VITE_DATA_MODE (default: mock).
- * TODO(Bushra): return new MockAdapter() (Task 2) / new LiveAdapter(...) (Task 13).
+ * TODO(Saransh, Task 13a): return new LiveAdapter(...) for live mode.
  */
 export function selectAdapter(
   mode: DataMode = parseDataMode(import.meta.env.VITE_DATA_MODE),
 ): DataAdapter {
-  return notImplemented(mode);
+  return mode === 'mock' ? new MockAdapter() : notImplemented(mode);
 }
