@@ -64,26 +64,93 @@ Bedrock and the other AWS services are used. Target ~5:00 (hard cap 5:00).
 
 ### 0:40–1:40 — Architecture (architecture slide full screen)
 
-Point at each box as you say it.
+The architecture is explained by **three presenters**, each owning one layer of the system. Point
+at each box as the owner speaks. All of it is defined in **AWS CDK** and deploys as one stack.
 
-> "Here's how it's put together, all on AWS and defined in **AWS CDK**.
+**End-to-end data flow (one sentence):** real feeds → DynamoDB → stream → Step Functions → Claude
+on Bedrock → human approval → SNS dispatch → React map on CloudFront.
+
+```text
+                         ┌──────────────── Presenter 1: Tanisha — Data & Ingest ───────────────┐
+  NWS weather ─┐         │  EventBridge Scheduler (every 5 min)                                 │
+  HHS emPOWER ─┼──────▶  │    └─ Ingest Lambda → NWS normalizer + deterministic engine          │
+  911 / outage ┘         │        └─ writes DemoEvents to  ►  DynamoDB (events, NEW_IMAGE stream)│
+                         └──────────────────────────────────────────┬──────────────────────────┘
+                                                                     │ stream
+            ┌──────────────── Presenter 2: Darsh — Cloud & Orchestration ──────────────────────┐
+            │  HTTP API + Cognito JWT authorizer  ──► read / simulate / approve Lambdas          │
+            │  DynamoDB stream ─► Step Functions:  RunAgent → SaveAlert (waitForTaskToken)        │
+            │                                      → [human approves] → Dispatch (parallel)       │
+            │                                      → MarkDispatched                               │
+            │  Dispatch fans out to: SNS email/SMS · activate shelter · launch drone              │
+            │  Amazon Location (map + routes) · SSM params · S3 + CloudFront hosting              │
+            └──────────────────────────────────────────┬───────────────────────────────────────┘
+                                                        │ RunAgent step calls the agent
+         ┌──────────── Presenter 3: Saransh & Bushra — Intelligence & Experience ───────────────┐
+         │  runAgent() → Claude on Amazon Bedrock (Converse API, tool-use loop)                  │
+         │    └─ tools call the deterministic engine; assembleAlert + grounding check            │
+         │  React dashboard on CloudFront: Amazon Location map, event feed, alert card, approve   │
+         └──────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Presenter 1 — Tanisha: Data & Ingest layer (`packages/engine`, ingest)
+
+> "Everything starts with **real data**. An **EventBridge Scheduler** fires every five minutes and
+> invokes an **ingest Lambda**. It pulls **NWS** weather alerts and **HHS emPOWER** patient-dependency
+> data, normalizes them into one shared event shape, and writes them to **DynamoDB**.
 >
-> **Ingest:** an **EventBridge Scheduler** pulls real feeds — NWS weather and HHS emPOWER patient
-> data — normalizes them, and writes to **DynamoDB**.
+> The heart of this layer is a **deterministic risk engine** — pure, tested TypeScript, no AI. It
+> correlates events to a zone, checks whether the only access road is closed (is the zone _isolated_?),
+> counts electricity-dependent patients from emPOWER, and computes the isolation window — how long
+> until backup power runs out. These functions are the **ground truth** the agent is allowed to use,
+> so no number in the system is ever invented."
+
+- **Owns:** `packages/engine/**`, the NWS normalizer, the ingest handler.
+- **AWS services:** EventBridge Scheduler, Lambda (ingest), DynamoDB (events table).
+- **Why it matters:** the engine makes the agent _accountable_ — every figure traces back to code.
+
+#### Presenter 2 — Darsh: Cloud backend & orchestration (`infra`, all AWS)
+
+> "I own everything that runs in AWS, defined in **CDK**. Two parts: the API, and the brain.
 >
-> **API:** an **HTTP API** with a **Cognito** JWT authorizer on every route; read, simulate and
-> approve run on **Lambda**.
+> **The API** is an **HTTP API** with a **Cognito** JWT authorizer on **every** route — `GET /events`,
+> `GET /alerts`, `POST /simulate`, and `POST /alerts/{id}/approve` — each backed by a **Lambda**.
 >
-> **The brain:** a new event lands in DynamoDB, its **stream** triggers a **Step Functions**
-> workflow. Step one runs our agent: **Claude on Amazon Bedrock**, using the **Converse API** in a
-> tool-use loop. Claude calls our deterministic engine — events, roads, patients, shelters —
-> through those tools. It only reads and proposes; it never dispatches.
+> **The brain** is event-driven. When a new event lands in DynamoDB, its **stream** triggers a
+> **Step Functions** state machine, debounced to one run per zone. The workflow is: **RunAgent**,
+> then **SaveAlert**, then it **waits for a task token** — it literally **pauses** until a human
+> approves. On approval it resumes and **Dispatch** runs three things in parallel: an **SNS**
+> email/SMS, activating the shelter, and launching a drone — then **MarkDispatched**.
 >
-> **Human in the loop:** the workflow saves the proposed alert and **waits for a task token** —
-> it literally pauses until a human approves. On approval it resumes and dispatches via **SNS**.
+> I also provision **Amazon Location** (the map key and the evacuation route calculator), publish the
+> frontend's config to **SSM Parameter Store**, and host the app on **S3 + CloudFront**."
+
+- **Owns:** `infra/**`, `.github/**` (CI/CD).
+- **AWS services:** API Gateway (HTTP API), Cognito, Lambda, DynamoDB streams, Step Functions, SNS,
+  Amazon Location, SSM, S3, CloudFront — all in CDK, deployed via GitHub OIDC (no long-lived keys).
+- **Why it matters:** the **waitForTaskToken** pause is the human-in-the-loop guarantee — the system
+  cannot dispatch without a person clicking approve.
+
+#### Presenter 3 — Saransh & Bushra: Intelligence & experience (`packages/agent`, `apps/web`)
+
+> "When Step Functions calls **RunAgent**, our agent wakes up. It's **Claude on Amazon Bedrock**,
+> driven through the **Converse API** in a **tool-use loop**. Claude can't touch the database — it can
+> only call **our tools**, which wrap Tanisha's engine: get the events, correlate them to a zone, check
+> the roads, count dependent patients, find a shelter. Claude reasons over the results and calls
+> `submit_alert`. We then **assemble** the alert so every id and number comes straight from the engine
+> result, run it through a **grounding check**, and if anything is off — a bad number, a timeout, a
+> Bedrock error — we fall back to a safe deterministic template. **The model proposes; it can't invent
+> a fact, and it never dispatches.**
 >
-> **Frontend:** a React app on **S3 and CloudFront**, with **Amazon Location** for the map, live
-> traffic and evacuation routing."
+> That proposal surfaces in the **React dashboard**: the **Amazon Location** map with the outage zone,
+> the closed bridge and shelters; the live **event feed**; and the **alert card** with a _How the agent
+> got here_ tool-trace. The duty officer selects the actions and clicks **Approve** — which is the
+> single call that releases the Step Functions task token."
+
+- **Owns:** `packages/agent/**` (Saransh coordinates; built as four slices) and `apps/web/**` (Bushra).
+- **AWS services:** Amazon Bedrock (Claude via Converse), Amazon Location (map + routes, in the UI).
+- **Why it matters:** this is where AI connects the dots and where the human stays in control — the
+  two things the judges are looking for.
 
 ### 1:40–2:00 — The app, calm (switch to the browser)
 
@@ -147,7 +214,7 @@ Cut to the phone/email.
 
 ## Checklist (judges asked for these)
 
-- [ ] Architecture shown and explained (1:40–2:00 section)
+- [ ] Architecture shown and explained, split across the three presenters (0:40–1:40 section)
 - [ ] Application demoed live (2:00 onward)
 - [ ] Persona described (the EOC duty officer, 0:00–0:40)
 - [ ] Amazon Bedrock use shown (2:00–2:50 + recap)
