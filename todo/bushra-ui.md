@@ -20,9 +20,9 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
 
 ## Outbound handoffs (what you owe)
 
-| ID  | What                                     | To          | By  |
-| --- | ---------------------------------------- | ----------- | --- |
-| H8  | `MockAdapter` implementing `DataAdapter` | Darsh (e2e) | M1  |
+| ID  | What                                     | To                            | By  |
+| --- | ---------------------------------------- | ----------------------------- | --- |
+| H8  | `MockAdapter` implementing `DataAdapter` | Saransh (contract suite, e2e) | M1  |
 
 ## Tasks
 
@@ -53,11 +53,8 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
     - Styling: the outage zone polygon is red, the closure `RoadSegment` line is yellow, and critical events get pulsing CSS markers.
   - Tests: the GeoJSON transform functions. WebGL rendering isn't unit-tested.
   - Demo: calm pins show; Simulate adds the polygon, the yellow line and 3 red pins.
-- [ ] **Task 4: EventFeed**
-  - Objective: a live list of events in the left sidebar.
-  - Guidance: newest first; colors by severity; monospace timestamps and IDs; clicking an item sets `selectedEventId` and flies the map to it; framer-motion entry animation.
-  - Tests: sort order; severity class; clicking sets the selection.
-  - Demo: the feed updates on Simulate, and clicking an item pans the map.
+- **Task 4: EventFeed** → **moved to Saransh** to balance workload (details in [saransh-agent.md](saransh-agent.md#other-tasks-saransh)). You review the PR.
+  Give Saransh the store shape (`events`, `selectedEventId`) and the map's fly-to hook early.
 
 ### M2
 
@@ -75,11 +72,8 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
       - a drone path animates toward Zone A
   - Tests: countdown with fake timers; button state machine; approve sends only the checked `actionIds`.
   - Demo: the full offline loop, with no network.
-- [ ] **Task 13a: LiveAdapter against MSW**
-  - Objective: the live mode is ready before the backend exists.
-  - Guidance: add `src/data/LiveAdapter.ts`, which uses `fetch`, `API_ROUTES` and `buildPath`, and validates responses with the zod schemas. Add MSW handlers that follow `docs/CONTRACTS.md`, including the 401/404/409 errors. Write one shared contract test suite that runs against both `MockAdapter` and `LiveAdapter`.
-  - Tests: the shared contract suite passes for both adapters.
-  - Demo: `VITE_DATA_MODE=live` with MSW behaves the same as mock mode.
+- **Task 13a: LiveAdapter against MSW** → **moved to Saransh** to balance workload (details in [saransh-agent.md](saransh-agent.md#other-tasks-saransh)). You review the PR.
+  Your `MockAdapter` (H8) must pass his shared contract suite.
 
 ### M3
 
@@ -89,7 +83,7 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
     - Point `LiveAdapter` at the real API and poll `/events` and `/alerts` every 3 s.
     - Sign in with Cognito using Amplify Auth, and send `Authorization: Bearer`.
     - Show an offline/error banner instead of failing silently.
-    - Add a collapsible tool-trace panel (H9).
+    - The collapsible tool-trace panel (H9) is Saransh's; leave a slot for it in the AlertCard.
   - Tests: the contract suite still passes; banner on fetch failure.
   - Demo: log in, Simulate, and the alert created by Step Functions appears. Approve, and the SNS email arrives.
 

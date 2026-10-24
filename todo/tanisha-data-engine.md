@@ -95,6 +95,12 @@ Nothing else blocks you, so you can start immediately.
 
 - [ ] An Amazon Location Routes isolation check (avoid-area around the closures) behind the `checkIsolation` interface.
 
+## Task 16 share: offline check and runbook (M3)
+
+- Check the demo works with no Location key, no network and no Bedrock (mock mode and template
+  fallback), and fix or file anything that breaks.
+- Write the README runbook: setup, env vars, deploy (steps from Darsh), demo mode, reset.
+
 ## Agent slice: A1 – Tools (M1)
 
 The agent is split four ways. Yours is `packages/agent/src/tools.ts`, which wraps your engine

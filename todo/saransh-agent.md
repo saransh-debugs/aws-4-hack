@@ -7,6 +7,7 @@ actions. It never acts on its own. The agent is built by all four of us, one sli
 everyone can walk a judge through it.
 
 - **Coordinator:** Saransh. Lands the A0 interface stubs, reviews merges and runs the evals.
+  Saransh also has some UI and cloud tasks to balance effort: see [Other tasks](#other-tasks-saransh).
 - Owns: `packages/agent/**`. Each slice owns the files listed in its task below.
 - Reads: `@gridrisk/engine` (tool functions), `@gridrisk/shared` (schemas)
 - Test it: `npm test -w @gridrisk/agent`
@@ -173,6 +174,58 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
 - Tests: happy path with a mocked client has a `toolTrace`; fallback on an SDK error, a timeout
   and a made-up number each equal the template output; handler rejects bad input and returns
   `{ alert: null }` for calm.
+
+## Other tasks (Saransh)
+
+Moved from Bushra and Darsh so everyone's total effort is about the same (see the table in
+[PLAN.md](../PLAN.md#tasks)). Each one is reviewed by the person it came from, who still owns
+that directory.
+
+### M1
+
+- [ ] **Task 4: EventFeed** (from Bushra, in `apps/web`, Bushra reviews)
+  - Objective: a live list of events in the left sidebar.
+  - Guidance: newest first; colors by severity, plus severity text or an icon so color isn't the
+    only signal; monospace timestamps and IDs; clicking an item sets `selectedEventId` and flies
+    the map to it; framer-motion entry animation that respects `prefers-reduced-motion`; items
+    reachable and selectable with the keyboard.
+  - Tests: sort order; severity class; clicking sets the selection.
+  - Demo: the feed updates on Simulate, and clicking an item pans the map.
+
+### M2
+
+- [ ] **Task 13a: LiveAdapter against MSW** (from Bushra, in `apps/web`, Bushra reviews)
+  - Objective: the live mode is ready before the backend exists.
+  - Guidance: add `src/data/LiveAdapter.ts`, which uses `fetch`, `API_ROUTES` and `buildPath`,
+    and validates responses with the zod schemas. Add MSW handlers that follow
+    `docs/CONTRACTS.md`, including the 401/404/409 errors. Write one shared contract test suite
+    that runs against both `MockAdapter` (Bushra's H8) and `LiveAdapter`.
+  - Tests: the shared contract suite passes for both adapters.
+  - Demo: `VITE_DATA_MODE=live` with MSW behaves the same as mock mode.
+- [ ] **Approve handler, part of Task 11** (from Darsh, in `infra`, Darsh reviews)
+  - Objective: `POST /alerts/{id}/approve` behaves exactly as `docs/CONTRACTS.md` says.
+  - Guidance: a Lambda handler that validates the body with `ApproveRequestSchema`, loads the
+    alert, rejects unknown `actionIds`, calls Step Functions `SendTaskSuccess` with the stored task
+    token and the chosen actions, and returns `{ alert }`. Errors use `ApiErrorSchema`. Agree the
+    alert record shape (where the task token lives) with Darsh first; he wires the route,
+    authorizer and IAM.
+  - Tests (`aws-sdk-client-mock` for DynamoDB and SFN): 200; 400 for an empty or unknown
+    `actionIds`; 404 for an unknown alert; 409 if it is already approved or dispatched;
+    `SendTaskSuccess` is not called on any error.
+- [ ] **Tool-trace panel, part of Task 13b** (from Bushra, in `apps/web`, Bushra reviews)
+  - Objective: judges can see how the agent reached its alert (H9).
+  - Guidance: a collapsible panel in the AlertCard slot Bushra leaves, listing each `toolTrace`
+    entry (tool name, a short input, the key output numbers). Hidden for template alerts, which
+    have no trace. Keyboard operable, with `aria-expanded`.
+  - Tests: renders entries in order; hidden without a trace; toggles with the keyboard.
+
+### M3
+
+- [ ] **Playwright e2e, part of Task 15** (from Darsh, Darsh reviews the `.github/` change)
+  - Objective: the demo loop can't silently break.
+  - Guidance: mock mode, in CI: calm → Simulate → alert appears → check actions → Approve →
+    "DISPATCHED" → Reset. Use roles and labels for selectors, not CSS classes.
+  - Demo: the e2e job is green in CI.
 
 ## Outbound handoffs
 
