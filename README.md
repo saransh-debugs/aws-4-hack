@@ -1,6 +1,6 @@
 # GridRisk – AI EOC Copilot
 
-GridRisk links separate emergency feeds (power outages, flooded roads)  into a single
+GridRisk links separate emergency feeds (power outages, flooded roads) into a single
 risk, works out how much time is left, and proposes actions that **a human approves** before
 anything is dispatched. Built on AWS: Amazon Location, Bedrock, Step Functions and SNS.
 
