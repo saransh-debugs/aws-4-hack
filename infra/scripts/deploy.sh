@@ -7,6 +7,8 @@
 #   AWS_REGION       default us-east-1
 #   WEB_ORIGIN       passed through to the stack (CORS + Location key referrer)
 #   DISPATCH_EMAIL   passed through to the stack (SNS email subscription)
+#   DEMO_EMAIL       prefilled on the public sign-in as the guest account (default demo@example.com)
+#   DEMO_PASSWORD    the guest account's password, baked into the build so judges can sign in
 #
 # The web build reads VITE_COGNITO_* from SSM if the stack is already deployed; on a first-ever
 # deploy those params do not exist yet, so the build falls back to empty values and you re-run
@@ -40,6 +42,8 @@ VITE_AWS_REGION="${AWS_REGION}" \
 VITE_COGNITO_USER_POOL_ID="${POOL_ID}" \
 VITE_COGNITO_CLIENT_ID="${CLIENT_ID}" \
 VITE_LOCATION_API_KEY="${MAP_KEY}" \
+VITE_GUEST_EMAIL="${DEMO_EMAIL:-demo@example.com}" \
+VITE_GUEST_PASSWORD="${DEMO_PASSWORD:-}" \
   npm run build -w @gridrisk/web --prefix "${REPO_ROOT}"
 
 echo "==> Deploying GridRiskStack"

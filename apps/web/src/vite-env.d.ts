@@ -8,6 +8,9 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_COGNITO_USER_POOL_ID?: string;
   readonly VITE_COGNITO_CLIENT_ID?: string;
+  /** Prefilled guest credentials for the public demo sign-in. */
+  readonly VITE_GUEST_EMAIL?: string;
+  readonly VITE_GUEST_PASSWORD?: string;
   /** "msw" serves the API from a browser service worker (dev only). */
   readonly VITE_API_MOCKING?: string;
 }
