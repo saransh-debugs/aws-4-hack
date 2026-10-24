@@ -54,6 +54,15 @@ export function isDemoMode(): boolean {
   return process.env.GRIDRISK_DEMO_MODE === 'true';
 }
 
+/** Mutation role check. Cognito groups are included in the verified JWT claims. */
+export function isOperator(event: APIGatewayProxyEventV2): boolean {
+  const claims = (event.requestContext as { authorizer?: { jwt?: { claims?: Record<string, unknown> } } })
+    .authorizer?.jwt?.claims;
+  const groups = claims?.['cognito:groups'];
+  const values = Array.isArray(groups) ? groups : typeof groups === 'string' ? groups.split(',') : [];
+  return values.includes(process.env.GRIDRISK_OPERATOR_GROUP ?? 'gridrisk-operator');
+}
+
 /** Parse a JSON body, returning undefined when the body is empty or invalid JSON. */
 export function parseJsonBody(event: APIGatewayProxyEventV2): unknown {
   if (!event.body) return undefined;

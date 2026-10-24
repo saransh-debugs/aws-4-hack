@@ -17,8 +17,15 @@ import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { SFNClient, SendTaskSuccessCommand } from '@aws-sdk/client-sfn';
 import { ApproveRequestSchema, type AlertCardData } from '@gridrisk/shared';
-import { ddb, ALERTS_TABLE } from './shared/ddb';
-import { fail, isAuthenticated, ok, parseJsonBody, withErrorHandling } from './shared/http';
+import { ddb, ALERTS_TABLE, requireEnv } from './shared/ddb';
+import {
+  fail,
+  isAuthenticated,
+  isOperator,
+  ok,
+  parseJsonBody,
+  withErrorHandling,
+} from './shared/http';
 
 const sfn = new SFNClient({});
 
@@ -34,6 +41,7 @@ function toCardData(item: StoredAlert): AlertCardData {
 export const handler = withErrorHandling(
   async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
     if (!isAuthenticated(event)) return fail('UNAUTHENTICATED', 'Missing or invalid token');
+    if (!isOperator(event)) return fail('FORBIDDEN', 'Operator role required to approve requests');
 
     const id = event.pathParameters?.id;
     if (!id) return fail('BAD_REQUEST', 'Missing alert id');
@@ -105,6 +113,29 @@ export const handler = withErrorHandling(
         );
         throw err;
       }
+    }
+
+    try {
+      const claims = (
+        event.requestContext as {
+          authorizer?: { jwt?: { claims?: Record<string, unknown> } };
+        }
+      ).authorizer?.jwt?.claims ?? {};
+      await ddb.send(
+        new UpdateCommand({
+          TableName: requireEnv('AUDIT_TABLE'),
+          Key: { id: `approval#${id}#${Date.now()}` },
+          UpdateExpression: 'SET alertId = :alertId, actionIds = :actionIds, actor = :actor, createdAt = :createdAt',
+          ExpressionAttributeValues: {
+            ':alertId': id,
+            ':actionIds': actionIds,
+            ':actor': String(claims.email ?? claims.sub ?? 'unknown'),
+            ':createdAt': new Date().toISOString(),
+          },
+        }),
+      );
+    } catch (auditError) {
+      console.error('Approval succeeded but audit write failed', auditError);
     }
 
     return ok({ alert: toCardData(updated.Attributes as StoredAlert) });

@@ -23,6 +23,7 @@ const lockId = (zoneId: string): string => `zone-lock#${zoneId}`;
  */
 async function claimZone(zoneId: string): Promise<boolean> {
   try {
+    const expiresAt = Math.floor(Date.now() / 1000) + 2 * 60 * 60;
     await ddb.send(
       new PutCommand({
         TableName: ALERTS_TABLE(),
@@ -31,8 +32,10 @@ async function claimZone(zoneId: string): Promise<boolean> {
           kind: 'zone_lock',
           zoneId,
           claimedAt: new Date().toISOString(),
+          expiresAt,
         },
-        ConditionExpression: 'attribute_not_exists(id)',
+        ConditionExpression: 'attribute_not_exists(id) OR expiresAt < :now',
+        ExpressionAttributeValues: { ':now': Math.floor(Date.now() / 1000) },
       }),
     );
     return true;

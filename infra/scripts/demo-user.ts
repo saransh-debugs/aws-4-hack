@@ -15,6 +15,7 @@ import {
   CognitoIdentityProviderClient,
   AdminCreateUserCommand,
   AdminSetUserPasswordCommand,
+  AdminAddUserToGroupCommand,
   UsernameExistsException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
@@ -67,6 +68,13 @@ async function main(): Promise<void> {
       Username: email,
       Password: password,
       Permanent: true,
+    }),
+  );
+  await client.send(
+    new AdminAddUserToGroupCommand({
+      UserPoolId: userPoolId,
+      Username: email,
+      GroupName: 'gridrisk-operator',
     }),
   );
   process.stdout.write(`set permanent password for ${email}\n`);
