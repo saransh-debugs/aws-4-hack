@@ -99,6 +99,24 @@ describe('GET /alerts', () => {
   });
 });
 
+describe('GET /map-data', () => {
+  it('401 without a JWT', async () => {
+    const { handler } = await import('../lambda/getMapData');
+    const res = await handler(anonEvent());
+    expect((res as { statusCode: number }).statusCode).toBe(401);
+  });
+
+  it('returns the deployed map registry for authenticated requests', async () => {
+    const { handler } = await import('../lambda/getMapData');
+    const res = (await handler(authedEvent())) as { statusCode: number; body: string };
+    const parsed = body(res) as { zones: unknown[]; roads: unknown[]; shelters: unknown[] };
+    expect(res.statusCode).toBe(200);
+    expect(parsed.zones.length).toBeGreaterThan(0);
+    expect(parsed.roads.length).toBeGreaterThan(0);
+    expect(parsed.shelters.length).toBeGreaterThan(0);
+  });
+});
+
 describe('POST /simulate/{scenario}', () => {
   it('400 on an unknown scenario', async () => {
     const { handler } = await import('../lambda/simulate');

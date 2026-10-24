@@ -139,9 +139,9 @@ The CDK stack provisions an Amazon Location map, a referrer-restricted API key, 
 The frontend map is implemented in `apps/web/src/components/MapComponent.tsx`: it renders event,
 zone, road, and shelter layers, and event-feed selection flies the map to the selected event. The
 event feed and map load through the shared `DataAdapter`; `VITE_DATA_MODE=mock` uses deterministic
-engine fixtures, while `VITE_DATA_MODE=live` calls the deployed API. Zone, road, and shelter layers
-remain fixture-backed until those resources are exposed by the live API. The bundled offline dark
-style is used when `VITE_LOCATION_API_KEY` or `VITE_LOCATION_MAP_NAME` is empty.
+engine fixtures, while `VITE_DATA_MODE=live` calls the deployed API, including its `/map-data`
+registry for zones, roads, and shelters. The bundled offline dark style is used when
+`VITE_LOCATION_API_KEY` or `VITE_LOCATION_MAP_NAME` is empty.
 
 ### Mock / offline mode
 

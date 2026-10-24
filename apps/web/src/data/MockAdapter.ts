@@ -1,7 +1,7 @@
 import { buildTemplateAlert } from '@gridrisk/agent/template';
 import { analyze, buildScenario } from '@gridrisk/engine';
 import type { AlertCardData, DemoEvent, ScenarioName } from '@gridrisk/shared';
-import { SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
+import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
 import type { DataAdapter } from './DataAdapter';
 import { DataAdapterError } from './errors';
 
@@ -24,6 +24,23 @@ export class MockAdapter implements DataAdapter {
       proposedActions: alert.proposedActions.map((action) => ({ ...action })),
       relatedEventIds: [...alert.relatedEventIds],
     }));
+  }
+
+  async getMapData() {
+    return {
+      zones: ZONES.map((zone) => ({
+        ...zone,
+        polygon: {
+          ...zone.polygon,
+          coordinates: zone.polygon.coordinates.map((ring) => [...ring]),
+        },
+      })),
+      roads: ROADS.map((road) => ({
+        ...road,
+        line: { ...road.line, coordinates: [...road.line.coordinates] },
+      })),
+      shelters: SHELTERS.map((shelter) => ({ ...shelter })),
+    };
   }
 
   async approve(alertId: string, actionIds: string[]): Promise<AlertCardData> {

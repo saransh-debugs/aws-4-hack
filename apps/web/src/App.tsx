@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AlertCardData, DemoEvent } from '@gridrisk/shared';
-import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
+import type { AlertCardData, DemoEvent, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
 import { EventFeed } from './components/EventFeed';
 import { MapComponent } from './components/MapComponent';
 import { selectAdapter } from './data/selectAdapter';
@@ -13,16 +12,22 @@ export function App() {
   const adapter = useMemo(() => selectAdapter(), []);
   const [events, setEvents] = useState<DemoEvent[]>([]);
   const [alerts, setAlerts] = useState<AlertCardData[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [roads, setRoads] = useState<RoadSegment[]>([]);
+  const [shelters, setShelters] = useState<Shelter[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([adapter.getEvents(), adapter.getAlerts()])
-      .then(([nextEvents, nextAlerts]) => {
+    Promise.all([adapter.getEvents(), adapter.getAlerts(), adapter.getMapData()])
+      .then(([nextEvents, nextAlerts, nextMapData]) => {
         if (!active) return;
         setEvents(nextEvents);
         setAlerts(nextAlerts);
+        setZones(nextMapData.zones);
+        setRoads(nextMapData.roads);
+        setShelters(nextMapData.shelters);
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -66,9 +71,9 @@ export function App() {
         <section aria-label="Map" className="min-h-0 p-3">
           <MapComponent
             events={events}
-            zones={ZONES}
-            roads={ROADS}
-            shelters={SHELTERS}
+            zones={zones}
+            roads={roads}
+            shelters={shelters}
             selectedEventId={selectedEventId}
             onSelectEvent={(event) => setSelectedEventId(event.id)}
           />

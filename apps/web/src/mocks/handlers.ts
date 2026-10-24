@@ -13,7 +13,7 @@ import {
   type ApiError,
   type DemoEvent,
 } from '@gridrisk/shared';
-import { SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
+import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
 import { analyze, buildScenario } from '@gridrisk/engine';
 // Browser-safe subpath: no Bedrock SDK.
 import { buildTemplateAlert } from '@gridrisk/agent/template';
@@ -70,6 +70,13 @@ export function createHandlers(
     http.get(
       mswPath(base, API_ROUTES.getAlerts.path),
       ({ request }) => unauthorized(request) ?? HttpResponse.json({ alerts: state.alerts }),
+    ),
+
+    http.get(
+      mswPath(base, API_ROUTES.getMapData.path),
+      ({ request }) =>
+        unauthorized(request) ??
+        HttpResponse.json({ zones: ZONES, roads: ROADS, shelters: SHELTERS }),
     ),
 
     http.post<{ id: string }>(

@@ -47,6 +47,10 @@ export function describeDataAdapterContract(
       expect(ids(events)).toEqual(ids(CALM_EVENTS));
       for (const e of events) expect(() => DemoEventSchema.parse(e)).not.toThrow();
       expect(await adapter.getAlerts()).toEqual([]);
+      const mapData = await adapter.getMapData();
+      expect(mapData.zones.length).toBeGreaterThan(0);
+      expect(mapData.roads.length).toBeGreaterThan(0);
+      expect(mapData.shelters.length).toBeGreaterThan(0);
     });
 
     it('simulate("calm") returns the calm events and raises no alert', async () => {

@@ -63,10 +63,11 @@ It consumes the same `DemoEvent`, `Zone`, `RoadSegment`, and `Shelter` objects u
 
 This visual layer does not change the deterministic engine or provider data. It is a read-only view of
 the current adapter data. In mock mode, `MockAdapter` uses deterministic engine fixtures in memory;
-in live mode, `LiveAdapter` loads events and alerts from the deployed API. The current API contract
-does not return zones, road segments, or shelters, so those three map layers remain fixture-backed
-until the operational snapshot API exposes them. Alert approval is available through the adapter
-contract, but the dashboard's full alert-card controls are still a separate UI task.
+in live mode, `LiveAdapter` loads events, alerts, and map data from the deployed API. The `GET /map-data`
+endpoint is the authoritative deployed map registry for zones, road segments, and shelters; it is
+currently seeded from the shared Houston registry and can later be refreshed from GIS/provider data
+without changing the web contract. Alert approval is available through the adapter contract, but the
+dashboard's full alert-card controls are still a separate UI task.
 
 ## Provider sources
 

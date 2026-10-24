@@ -14,6 +14,7 @@ import {
   buildPath,
   GetAlertsResponseSchema,
   GetEventsResponseSchema,
+  GetMapDataResponseSchema,
   SimulateResponseSchema,
   type AlertCardData,
   type ApiRouteName,
@@ -57,6 +58,10 @@ export class LiveAdapter implements DataAdapter {
 
   async getAlerts(): Promise<AlertCardData[]> {
     return (await this.request('getAlerts', GetAlertsResponseSchema)).alerts;
+  }
+
+  async getMapData() {
+    return this.request('getMapData', GetMapDataResponseSchema);
   }
 
   async approve(alertId: string, actionIds: string[]): Promise<AlertCardData> {

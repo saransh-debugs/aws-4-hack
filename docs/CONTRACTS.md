@@ -118,6 +118,7 @@ Base URL: `VITE_API_URL`. All routes require `Authorization: Bearer <Cognito JWT
 | ------ | ---------------------- | ------------------------------ | ----------------------------------------- | ------------------ |
 | GET    | `/events`              | –                              | `{ events: DemoEvent[] }`                 | 401                |
 | GET    | `/alerts`              | –                              | `{ alerts: AlertCardData[] }`             | 401                |
+| GET    | `/map-data`            | –                              | `{ zones, roads, shelters }`              | 401                |
 | POST   | `/alerts/{id}/approve` | `{ actionIds: string[] }` (≥1) | `{ alert: AlertCardData }`                | 400, 401, 404, 409 |
 | POST   | `/simulate/{scenario}` | –                              | `{ events: DemoEvent[] }`                 | 400, 401           |
 | POST   | `/simulate/reset`      | –                              | `{ events: DemoEvent[] }` (calm baseline) | 401                |
@@ -135,6 +136,7 @@ Error body: `{ error: { code: 'UNAUTHENTICATED' | 'NOT_FOUND' | 'CONFLICT' | 'BA
 interface DataAdapter {
   getEvents(): Promise<DemoEvent[]>;
   getAlerts(): Promise<AlertCardData[]>;
+  getMapData(): Promise<{ zones: Zone[]; roads: RoadSegment[]; shelters: Shelter[] }>;
   approve(alertId: string, actionIds: string[]): Promise<AlertCardData>;
   simulate(scenario: ScenarioName): Promise<DemoEvent[]>; // returns full current event list
   reset(): Promise<void>;

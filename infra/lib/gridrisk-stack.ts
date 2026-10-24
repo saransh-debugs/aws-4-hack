@@ -138,6 +138,7 @@ export class GridRiskStack extends Stack {
     // ---------------------------------------------------------------------
     const getEventsFn = mkFn('GetEventsFn', 'getEvents.ts');
     const getAlertsFn = mkFn('GetAlertsFn', 'getAlerts.ts');
+    const getMapDataFn = mkFn('GetMapDataFn', 'getMapData.ts');
     const simulateFn = mkFn('SimulateFn', 'simulate.ts');
 
     eventsTable.grantReadData(getEventsFn);
@@ -309,6 +310,11 @@ export class GridRiskStack extends Stack {
       path: '/alerts',
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration('GetAlertsIntegration', getAlertsFn),
+    });
+    httpApi.addRoutes({
+      path: '/map-data',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration('GetMapDataIntegration', getMapDataFn),
     });
     httpApi.addRoutes({
       path: '/alerts/{id}/approve',

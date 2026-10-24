@@ -1,4 +1,11 @@
-import type { AlertCardData, DemoEvent, ScenarioName } from '@gridrisk/shared';
+import type {
+  AlertCardData,
+  DemoEvent,
+  RoadSegment,
+  ScenarioName,
+  Shelter,
+  Zone,
+} from '@gridrisk/shared';
 
 /**
  * The only way the UI talks to data (handoff H8). Two implementations:
@@ -9,6 +16,7 @@ import type { AlertCardData, DemoEvent, ScenarioName } from '@gridrisk/shared';
 export interface DataAdapter {
   getEvents(): Promise<DemoEvent[]>;
   getAlerts(): Promise<AlertCardData[]>;
+  getMapData(): Promise<{ zones: Zone[]; roads: RoadSegment[]; shelters: Shelter[] }>;
   /** Approve a subset of an alert's proposed actions. Resolves to the updated alert. */
   approve(alertId: string, actionIds: string[]): Promise<AlertCardData>;
   /** Inject a scenario's events. Resolves to the full current event list. */

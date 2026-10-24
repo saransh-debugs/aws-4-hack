@@ -150,6 +150,13 @@ export type GetEventsResponse = z.infer<typeof GetEventsResponseSchema>;
 export const GetAlertsResponseSchema = z.object({ alerts: z.array(AlertCardDataSchema) });
 export type GetAlertsResponse = z.infer<typeof GetAlertsResponseSchema>;
 
+export const GetMapDataResponseSchema = z.object({
+  zones: z.array(ZoneSchema),
+  roads: z.array(RoadSegmentSchema),
+  shelters: z.array(ShelterSchema),
+});
+export type GetMapDataResponse = z.infer<typeof GetMapDataResponseSchema>;
+
 export const ApproveRequestSchema = z.object({ actionIds: z.array(z.string()).min(1) });
 export type ApproveRequest = z.infer<typeof ApproveRequestSchema>;
 
@@ -170,6 +177,7 @@ export type ApiError = z.infer<typeof ApiErrorSchema>;
 export const API_ROUTES = {
   getEvents: { method: 'GET', path: '/events' },
   getAlerts: { method: 'GET', path: '/alerts' },
+  getMapData: { method: 'GET', path: '/map-data' },
   approveAlert: { method: 'POST', path: '/alerts/{id}/approve' },
   simulate: { method: 'POST', path: '/simulate/{scenario}' },
   reset: { method: 'POST', path: '/simulate/reset' },
