@@ -1,61 +1,42 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { AlertCardData, DemoEvent, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
-import { EventFeed } from './components/EventFeed';
-import { MapComponent } from './components/MapComponent';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
+import { AdapterProvider } from './data/AdapterContext';
+import type { DataAdapter } from './data/DataAdapter';
 import { selectAdapter } from './data/selectAdapter';
+import { useRefresh } from './data/useGridData';
+import { DevToolbar } from './components/DevToolbar';
+import { EventFeed } from './components/EventFeed';
+import { MapBoundary } from './components/MapBoundary';
+import { StatsBar } from './components/StatsBar';
+import { useGridStore } from './store';
 
-/**
- * Dashboard shell. Both mock and live modes load through the same DataAdapter contract, so the
- * map and event feed do not need to know whether data came from fixtures or the deployed API.
- */
-export function App() {
-  const adapter = useMemo(() => selectAdapter(), []);
-  const [events, setEvents] = useState<DemoEvent[]>([]);
-  const [alerts, setAlerts] = useState<AlertCardData[]>([]);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [roads, setRoads] = useState<RoadSegment[]>([]);
-  const [shelters, setShelters] = useState<Shelter[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+// Lazy so maplibre-gl stays out of the first bundle.
+const MapComponent = lazy(() => import('./map/MapComponent'));
+
+function Shell() {
+  const refresh = useRefresh();
+  const events = useGridStore((s) => s.events);
+  const alerts = useGridStore((s) => s.alerts);
+  const selectedEventId = useGridStore((s) => s.selectedEventId);
+  const selectEvent = useGridStore((s) => s.selectEvent);
 
   useEffect(() => {
-    let active = true;
-    Promise.all([adapter.getEvents(), adapter.getAlerts(), adapter.getMapData()])
-      .then(([nextEvents, nextAlerts, nextMapData]) => {
-        if (!active) return;
-        setEvents(nextEvents);
-        setAlerts(nextAlerts);
-        setZones(nextMapData.zones);
-        setRoads(nextMapData.roads);
-        setShelters(nextMapData.shelters);
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setLoadError(error instanceof Error ? error.message : 'Unable to load operational data');
-      });
-    return () => {
-      active = false;
-    };
-  }, [adapter]);
+    void refresh().catch(() => undefined); // TODO(Task 13b): show an offline/error banner
+  }, [refresh]);
 
   return (
     <div className="flex h-full flex-col bg-surface text-ink">
       <header className="flex items-center justify-between border-b border-slate-700 px-4 py-2">
         <h1 className="font-mono text-sm tracking-widest">GridRisk • LIVE FEED • SYNTHETIC DATA</h1>
-        <span className="flex items-center gap-2 font-mono text-xs text-slate-300">
-          <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-critical" />
-          LIVE
-        </span>
+        <div className="flex items-center gap-4">
+          <DevToolbar />
+          <span className="flex items-center gap-2 font-mono text-xs text-slate-300">
+            <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-critical" />
+            LIVE
+          </span>
+        </div>
       </header>
 
-      {loadError && (
-        <p
-          role="alert"
-          className="border-b border-red-900 bg-red-950/60 px-4 py-2 text-sm text-red-200"
-        >
-          Data refresh failed: {loadError}
-        </p>
-      )}
+      <StatsBar />
 
       <main className="grid min-h-0 flex-1 grid-cols-[20rem_1fr_22rem]">
         <aside
@@ -65,25 +46,40 @@ export function App() {
           <EventFeed
             events={events}
             selectedEventId={selectedEventId}
-            onSelect={(e) => setSelectedEventId(e.id)}
+            onSelect={(e) => selectEvent(e.id)}
           />
         </aside>
-        <section aria-label="Map" className="min-h-0 p-3">
-          <MapComponent
-            events={events}
-            zones={zones}
-            roads={roads}
-            shelters={shelters}
-            selectedEventId={selectedEventId}
-            onSelectEvent={(event) => setSelectedEventId(event.id)}
-          />
+        <section aria-label="Map" className="relative min-h-0">
+          <MapBoundary>
+            <Suspense fallback={<p className="p-4 text-sm text-slate-300">Loading map…</p>}>
+              <MapComponent />
+            </Suspense>
+          </MapBoundary>
         </section>
         <aside aria-label="Alerts" className="border-l border-slate-700 p-4">
-          <p className="text-sm text-slate-300">Alerts</p>
-          <p className="mt-2 font-mono text-2xl text-slate-100">{alerts.length}</p>
-          <p className="text-xs text-slate-400">from the active data adapter</p>
+          {alerts.length === 0 ? (
+            <p className="text-sm text-slate-300">No active alerts.</p>
+          ) : (
+            // TODO(Bushra): replace with AlertCard (Task 5)
+            <ul className="space-y-2">
+              {alerts.map((a) => (
+                <li key={a.id} className="font-mono text-sm">
+                  {a.title} <span className="text-slate-300">({a.status})</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </aside>
       </main>
     </div>
+  );
+}
+
+export function App({ adapter }: { adapter?: DataAdapter }) {
+  const resolved = useMemo(() => adapter ?? selectAdapter(), [adapter]);
+  return (
+    <AdapterProvider value={resolved}>
+      <Shell />
+    </AdapterProvider>
   );
 }

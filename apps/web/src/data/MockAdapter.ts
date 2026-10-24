@@ -1,78 +1,83 @@
-import { buildTemplateAlert } from '@gridrisk/agent/template';
-import { analyze, buildScenario } from '@gridrisk/engine';
-import type { AlertCardData, DemoEvent, ScenarioName } from '@gridrisk/shared';
+import type {
+  AlertCardData,
+  DemoEvent,
+  RoadSegment,
+  ScenarioName,
+  Shelter,
+  Zone,
+} from '@gridrisk/shared';
 import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
-import type { DataAdapter } from './DataAdapter';
-import { DataAdapterError } from './errors';
+import { analyze, buildScenario } from '@gridrisk/engine';
+// Subpath on purpose: the package root pulls in the Bedrock SDK, which must not reach the browser.
+import { buildTemplateAlert } from '@gridrisk/agent/template';
+import { AdapterError, type DataAdapter } from './DataAdapter';
+
+export interface MockAdapterOptions {
+  zones?: Zone[];
+  roads?: RoadSegment[];
+  shelters?: Shelter[];
+  now?: () => Date;
+}
 
 /**
- * Browser-safe deterministic adapter for the prototype. It mirrors the API contract and keeps
- * its state in memory so the map/feed can use the same path as the live API.
+ * Handoff H8. In-memory DataAdapter for offline mode. Behaves like the HTTP API in
+ * docs/CONTRACTS.md, including its errors (404, 409, 400).
  */
 export class MockAdapter implements DataAdapter {
-  private events: DemoEvent[] = buildScenario('calm');
+  private readonly zones: Zone[];
+  private readonly roads: RoadSegment[];
+  private readonly shelters: Shelter[];
+  private readonly now: () => Date;
+  private events: DemoEvent[];
   private alerts: AlertCardData[] = [];
 
+  constructor(options: MockAdapterOptions = {}) {
+    this.zones = options.zones ?? ZONES;
+    this.roads = options.roads ?? ROADS;
+    this.shelters = options.shelters ?? SHELTERS;
+    this.now = options.now ?? (() => new Date());
+    this.events = buildScenario('calm');
+  }
+
   async getEvents(): Promise<DemoEvent[]> {
-    return this.events.map((event) => ({ ...event }));
+    return structuredClone(this.events);
   }
 
   async getAlerts(): Promise<AlertCardData[]> {
-    return this.alerts.map((alert) => ({
-      ...alert,
-      points: [...alert.points],
-      proposedActions: alert.proposedActions.map((action) => ({ ...action })),
-      relatedEventIds: [...alert.relatedEventIds],
-    }));
+    return structuredClone(this.alerts);
   }
 
   async getMapData() {
-    return {
-      zones: ZONES.map((zone) => ({
-        ...zone,
-        polygon: {
-          ...zone.polygon,
-          coordinates: zone.polygon.coordinates.map((ring) => [...ring]),
-        },
-      })),
-      roads: ROADS.map((road) => ({
-        ...road,
-        line: { ...road.line, coordinates: [...road.line.coordinates] },
-      })),
-      shelters: SHELTERS.map((shelter) => ({ ...shelter })),
-    };
+    return structuredClone({ zones: this.zones, roads: this.roads, shelters: this.shelters });
   }
 
   async approve(alertId: string, actionIds: string[]): Promise<AlertCardData> {
-    const alert = this.alerts.find((candidate) => candidate.id === alertId);
-    if (!alert) throw new DataAdapterError('NOT_FOUND', `Unknown alert: ${alertId}`, 404);
+    const alert = this.alerts.find((a) => a.id === alertId);
+    if (!alert) throw new AdapterError('NOT_FOUND', `Unknown alert: ${alertId}`);
     if (alert.status !== 'pending') {
-      throw new DataAdapterError('CONFLICT', `Alert ${alert.id} is already ${alert.status}`, 409);
+      throw new AdapterError('CONFLICT', `Alert ${alertId} is already ${alert.status}`);
     }
-    if (actionIds.length === 0) {
-      throw new DataAdapterError(
-        'BAD_REQUEST',
-        'actionIds must be a non-empty array of strings',
-        400,
-      );
-    }
-    const knownActionIds = new Set(alert.proposedActions.map((action) => action.id));
-    const unknown = actionIds.filter((id) => !knownActionIds.has(id));
-    if (unknown.length > 0) {
-      throw new DataAdapterError('BAD_REQUEST', `Unknown actionIds: ${unknown.join(', ')}`, 400);
+    const known = new Set(alert.proposedActions.map((a) => a.id));
+    if (actionIds.length === 0 || actionIds.some((id) => !known.has(id))) {
+      throw new AdapterError('BAD_REQUEST', 'actionIds must be a non-empty subset of the alert');
     }
     alert.status = 'dispatched';
-    return (await this.getAlerts()).find((candidate) => candidate.id === alertId)!;
+    return structuredClone(alert);
   }
 
   async simulate(scenario: ScenarioName): Promise<DemoEvent[]> {
     this.events = buildScenario(scenario);
-    for (const result of analyze(this.events, ZONES, { shelters: SHELTERS })) {
-      if (!result.isolated || this.alerts.some((alert) => alert.zoneId === result.zoneId)) continue;
-      const zone = ZONES.find((candidate) => candidate.id === result.zoneId);
-      if (zone) this.alerts.push(buildTemplateAlert(result, { zone, shelters: SHELTERS }));
+    if (scenario === 'calm') this.alerts = [];
+
+    for (const result of analyze(this.events, this.zones, { shelters: this.shelters })) {
+      const zone = this.zones.find((z) => z.id === result.zoneId);
+      if (!zone || !result.isolated) continue;
+      if (this.alerts.some((a) => a.zoneId === zone.id)) continue;
+      this.alerts.push(
+        buildTemplateAlert(result, { zone, shelters: this.shelters, now: this.now() }),
+      );
     }
-    return this.getEvents();
+    return structuredClone(this.events);
   }
 
   async reset(): Promise<void> {

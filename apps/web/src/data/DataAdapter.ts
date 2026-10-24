@@ -1,11 +1,13 @@
 import type {
   AlertCardData,
+  ApiError,
   DemoEvent,
   RoadSegment,
   ScenarioName,
   Shelter,
   Zone,
 } from '@gridrisk/shared';
+import { DataAdapterError } from './errors';
 
 /**
  * The only way the UI talks to data (handoff H8). Two implementations:
@@ -26,3 +28,13 @@ export interface DataAdapter {
 }
 
 export type DataMode = 'mock' | 'live';
+
+/**
+ * What every adapter throws, so the UI and the shared contract suite handle MockAdapter and
+ * LiveAdapter the same way. `code` is the API's error code (409 -> CONFLICT, 404 -> NOT_FOUND).
+ */
+export class AdapterError extends DataAdapterError {
+  constructor(code: ApiError['error']['code'], message: string) {
+    super(code, message);
+  }
+}
