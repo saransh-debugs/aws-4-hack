@@ -119,9 +119,7 @@ async function writeHealth(
     ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
   };
   const client = new DynamoDBClient({});
-  await client.send(
-    new PutItemCommand({ TableName: deps.tableName, Item: healthItemFor(health) }),
-  );
+  await client.send(new PutItemCommand({ TableName: deps.tableName, Item: healthItemFor(health) }));
   deps.log?.(`Provider health ${source}: ${status}`, { recordCount });
 }
 
@@ -191,12 +189,9 @@ export async function handler(): Promise<{ count: number }> {
   try {
     const nwsEvents = await fetchNwsAlerts();
     events.push(...nwsEvents);
-    await writeHealth(
-      'nws',
-      nwsEvents.length > 0 ? 'healthy' : 'empty',
-      nwsEvents.length,
-      { tableName: healthTableName },
-    );
+    await writeHealth('nws', nwsEvents.length > 0 ? 'healthy' : 'empty', nwsEvents.length, {
+      tableName: healthTableName,
+    });
   } catch (error) {
     console.error('NWS ingest failed; retaining existing events.', error);
     await writeHealth('nws', 'error', 0, { tableName: healthTableName }, error);
@@ -205,7 +200,12 @@ export async function handler(): Promise<{ count: number }> {
     try {
       const before = events.length;
       events.push(...(await fetchDriveTexasConditions(process.env.DRIVETEXAS_API_KEY)));
-      await writeHealth('drivetexas', events.length - before > 0 ? 'healthy' : 'empty', events.length - before, { tableName: healthTableName });
+      await writeHealth(
+        'drivetexas',
+        events.length - before > 0 ? 'healthy' : 'empty',
+        events.length - before,
+        { tableName: healthTableName },
+      );
     } catch (error) {
       console.error('DriveTexas ingest failed; retaining existing events.', error);
       await writeHealth('drivetexas', 'error', 0, { tableName: healthTableName }, error);
@@ -221,8 +221,15 @@ export async function handler(): Promise<{ count: number }> {
   }
   try {
     const before = events.length;
-    events.push(...(await fetchCenterPointOutages(process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL || undefined)));
-    await writeHealth('centerpoint', events.length - before > 0 ? 'healthy' : 'empty', events.length - before, { tableName: healthTableName });
+    events.push(
+      ...(await fetchCenterPointOutages(process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL || undefined)),
+    );
+    await writeHealth(
+      'centerpoint',
+      events.length - before > 0 ? 'healthy' : 'empty',
+      events.length - before,
+      { tableName: healthTableName },
+    );
   } catch (error) {
     console.error('CenterPoint outage ingest failed; retaining existing events.', error);
     await writeHealth('centerpoint', 'error', 0, { tableName: healthTableName }, error);

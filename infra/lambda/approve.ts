@@ -116,16 +116,18 @@ export const handler = withErrorHandling(
     }
 
     try {
-      const claims = (
-        event.requestContext as {
-          authorizer?: { jwt?: { claims?: Record<string, unknown> } };
-        }
-      ).authorizer?.jwt?.claims ?? {};
+      const claims =
+        (
+          event.requestContext as {
+            authorizer?: { jwt?: { claims?: Record<string, unknown> } };
+          }
+        ).authorizer?.jwt?.claims ?? {};
       await ddb.send(
         new UpdateCommand({
           TableName: requireEnv('AUDIT_TABLE'),
           Key: { id: `approval#${id}#${Date.now()}` },
-          UpdateExpression: 'SET alertId = :alertId, actionIds = :actionIds, actor = :actor, createdAt = :createdAt',
+          UpdateExpression:
+            'SET alertId = :alertId, actionIds = :actionIds, actor = :actor, createdAt = :createdAt',
           ExpressionAttributeValues: {
             ':alertId': id,
             ':actionIds': actionIds,

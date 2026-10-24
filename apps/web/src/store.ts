@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import type { AlertCardData, DemoEvent, MapData, RoadSegment, Shelter, SourceHealth, Zone } from '@gridrisk/shared';
+import type {
+  AlertCardData,
+  DemoEvent,
+  MapData,
+  RoadSegment,
+  Shelter,
+  SourceHealth,
+  Zone,
+} from '@gridrisk/shared';
 import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
 import type { DataMode } from './data/DataAdapter';
 import { parseDataMode } from './data/selectAdapter';
@@ -41,6 +49,7 @@ export const useGridStore = create<GridState>()((set) => ({
     })),
   selectEvent: (id) => set({ selectedEventId: id }),
   setHealth: (health) => set({ health }),
-  setMapData: (mapData) => set({ zones: mapData.zones, roads: mapData.roads, shelters: mapData.shelters }),
+  setMapData: (mapData) =>
+    set({ zones: mapData.zones, roads: mapData.roads, shelters: mapData.shelters }),
   setMode: (mode) => set({ mode }),
 }));

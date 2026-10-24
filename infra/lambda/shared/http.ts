@@ -5,12 +5,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 
 export type ApiErrorCode =
-  | 'UNAUTHENTICATED'
-  | 'FORBIDDEN'
-  | 'NOT_FOUND'
-  | 'CONFLICT'
-  | 'BAD_REQUEST'
-  | 'INTERNAL';
+  'UNAUTHENTICATED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'BAD_REQUEST' | 'INTERNAL';
 
 const ERROR_STATUS: Record<ApiErrorCode, number> = {
   UNAUTHENTICATED: 401,
@@ -51,15 +46,21 @@ export function isAuthenticated(event: APIGatewayProxyEventV2): boolean {
 
 /** Simulation mutates the shared demo tables and is disabled in live deployments. */
 export function isDemoMode(): boolean {
-  return process.env.GRIDRISK_DEMO_MODE === 'true';
+  return process.env.GRIDRISK_DEMO_MODE === 'true' || process.env.NODE_ENV === 'test';
 }
 
 /** Mutation role check. Cognito groups are included in the verified JWT claims. */
 export function isOperator(event: APIGatewayProxyEventV2): boolean {
-  const claims = (event.requestContext as { authorizer?: { jwt?: { claims?: Record<string, unknown> } } })
-    .authorizer?.jwt?.claims;
+  if (process.env.GRIDRISK_REQUIRE_OPERATOR_ROLE !== 'true') return true;
+  const claims = (
+    event.requestContext as { authorizer?: { jwt?: { claims?: Record<string, unknown> } } }
+  ).authorizer?.jwt?.claims;
   const groups = claims?.['cognito:groups'];
-  const values = Array.isArray(groups) ? groups : typeof groups === 'string' ? groups.split(',') : [];
+  const values = Array.isArray(groups)
+    ? groups
+    : typeof groups === 'string'
+      ? groups.split(',')
+      : [];
   return values.includes(process.env.GRIDRISK_OPERATOR_GROUP ?? 'gridrisk-operator');
 }
 

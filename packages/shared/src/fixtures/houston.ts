@@ -165,6 +165,8 @@ export const ESCALATION_ENGINE_RESULT: EngineResult = {
   avgBackupMinutes: 120,
   estimatedResponseMinutes: 75,
   isolationWindowMinutes: 45,
+  isolationWindowRangeMinutes: { min: 0, max: 135 },
+  uncertainty: 'planning-estimate',
   candidateShelterIds: [SHELTER_B.id],
 };
 
@@ -176,8 +178,11 @@ export const SAMPLE_ALERT: AlertCardData = {
     'Storm flooding has closed the only access road into Zone A.',
     'Power outage active in this zone.',
     'Deterministic engine calculates 340 electricity-dependent patients here, with an average backup of just 2 hours.',
+    'Planning estimate only: the remaining response window may range from 0 minutes to 135 minutes because backup and response times are not clinically validated.',
   ],
   isolationWindowMinutes: 45,
+  isolationWindowRangeMinutes: { min: 0, max: 135 },
+  uncertainty: 'planning-estimate',
   proposedActions: [
     {
       id: 'act-shelter-b',

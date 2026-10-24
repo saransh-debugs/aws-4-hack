@@ -13,6 +13,7 @@
 import { GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 import { MapDataSchema, type AlertCardData, type DemoEvent } from '@gridrisk/shared';
+import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
 import { runAgent, type AgentLogger } from '@gridrisk/agent';
 import { DEFAULT_CONFIG } from '@gridrisk/engine';
 import { ddb, EVENTS_TABLE, GEOGRAPHY_TABLE, requireEnv } from '../shared/ddb';
@@ -46,13 +47,18 @@ const logger: AgentLogger = {
 export async function handler(input: Input): Promise<Output> {
   const res = await ddb.send(new ScanCommand({ TableName: EVENTS_TABLE() }));
   const events = (res.Items ?? []) as DemoEvent[];
-  const geography = await ddb.send(new ScanCommand({ TableName: GEOGRAPHY_TABLE() }));
-  const payload = (geography.Items ?? [])[0]?.payload;
-  const mapData = MapDataSchema.parse(payload ? JSON.parse(String(payload)) : undefined);
-  const snapshot = await ddb.send(
-    new GetCommand({ TableName: requireEnv('SNAPSHOTS_TABLE'), Key: { id: 'empower' } }),
-  );
-  const patientCounts = snapshot.Item?.payload
+  let mapData = { version: 'fixture', zones: ZONES, roads: ROADS, shelters: SHELTERS };
+  if (process.env.GEOGRAPHY_TABLE) {
+    const geography = await ddb.send(new ScanCommand({ TableName: GEOGRAPHY_TABLE() }));
+    const payload = (geography.Items ?? [])[0]?.payload;
+    mapData = MapDataSchema.parse(payload ? JSON.parse(String(payload)) : undefined);
+  }
+  const snapshot = process.env.SNAPSHOTS_TABLE
+    ? await ddb.send(
+        new GetCommand({ TableName: requireEnv('SNAPSHOTS_TABLE'), Key: { id: 'empower' } }),
+      )
+    : undefined;
+  const patientCounts = snapshot?.Item?.payload
     ? (JSON.parse(String(snapshot.Item.payload)) as Array<{
         zip: string;
         electricityDependentCount: number;
@@ -70,7 +76,10 @@ export async function handler(input: Input): Promise<Output> {
       shelters: mapData.shelters,
       patientCounts,
       config: {
-        avgBackupMinutes: minutes('GRIDRISK_BACKUP_MINUTES_NOMINAL', DEFAULT_CONFIG.avgBackupMinutes),
+        avgBackupMinutes: minutes(
+          'GRIDRISK_BACKUP_MINUTES_NOMINAL',
+          DEFAULT_CONFIG.avgBackupMinutes,
+        ),
         estimatedResponseMinutes: minutes(
           'GRIDRISK_RESPONSE_MINUTES_NOMINAL',
           DEFAULT_CONFIG.estimatedResponseMinutes,

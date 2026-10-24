@@ -32,6 +32,10 @@ export function assembleAlert(
     title: sub.title,
     points: sub.points,
     isolationWindowMinutes: result.isolationWindowMinutes,
+    ...(result.isolationWindowRangeMinutes
+      ? { isolationWindowRangeMinutes: result.isolationWindowRangeMinutes }
+      : {}),
+    ...(result.uncertainty ? { uncertainty: result.uncertainty } : {}),
     proposedActions: buildProposedActions(sub.actionTypes, { zone, shelters, result }),
     relatedEventIds: [
       ...result.outageEventIds,

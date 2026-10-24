@@ -61,7 +61,12 @@ export class MockAdapter implements DataAdapter {
   }
 
   async getMapData(): Promise<MapData> {
-    return { version: 'fixture-2026-10-23', zones: structuredClone(this.zones), roads: structuredClone(ROADS), shelters: structuredClone(this.shelters) };
+    return {
+      version: 'fixture-2026-10-23',
+      zones: structuredClone(this.zones),
+      roads: structuredClone(ROADS),
+      shelters: structuredClone(this.shelters),
+    };
   }
 
   async approve(alertId: string, actionIds: string[]): Promise<AlertCardData> {

@@ -34,7 +34,12 @@ export function validateEngineConfig(config: EngineConfig): void {
     ['responseRangeMinutes', config.responseRangeMinutes],
   ] as const) {
     if (!range) continue;
-    if (!Number.isFinite(range.min) || !Number.isFinite(range.max) || range.min < 0 || range.max < range.min) {
+    if (
+      !Number.isFinite(range.min) ||
+      !Number.isFinite(range.max) ||
+      range.min < 0 ||
+      range.max < range.min
+    ) {
       throw new Error(`${name} must contain a valid non-negative min/max range`);
     }
   }

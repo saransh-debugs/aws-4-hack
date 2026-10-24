@@ -125,8 +125,9 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
           role="status"
           className="border-b border-amber-500/50 bg-amber-500/10 px-4 py-1.5 font-mono text-xs text-amber-200"
         >
-          Data warning — {warningSources.map((source) => `${source.source}: ${source.status}`).join('; ')}.
-          Verify provider status before acting.
+          Data warning —{' '}
+          {warningSources.map((source) => `${source.source}: ${source.status}`).join('; ')}. Verify
+          provider status before acting.
         </p>
       )}
 

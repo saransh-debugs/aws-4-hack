@@ -21,7 +21,7 @@ describe('GridRiskStack', () => {
 
   it('Task 10: has event, alert, shelter, and snapshot tables', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::DynamoDB::Table', 4);
+    template.resourceCountIs('AWS::DynamoDB::Table', 7);
   });
 
   it('Task 10: the events table enables a NEW_IMAGE stream', () => {

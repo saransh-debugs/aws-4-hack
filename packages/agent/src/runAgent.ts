@@ -73,9 +73,7 @@ export async function runAgent(
     shelters,
     roads: deps.roads,
     patientCounts: deps.patientCounts,
-  }).find(
-    (r) => r.zoneId === zone.id,
-  );
+  }).find((r) => r.zoneId === zone.id);
   if (!result?.isolated) return null;
 
   const now = deps.now?.();

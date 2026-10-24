@@ -37,7 +37,7 @@ describe('dispatchToastMessage', () => {
       'Notification Published. Drone Mission Request Created.',
     );
     expect(dispatchToastMessage(['activate_shelter'])).toBe('Shelter Activation Recorded.');
-    expect(dispatchToastMessage([])).toBe('Actions dispatched.');
+    expect(dispatchToastMessage([])).toBe('Requests recorded.');
   });
 });
 
@@ -63,7 +63,7 @@ describe('AlertCard', () => {
     renderCard(SAMPLE_ALERT, stubAdapter({ approve }));
 
     // Uncheck the drone action; only the shelter should be approved.
-    await user.click(screen.getByLabelText(/dispatch aerial recon drone/i));
+    await user.click(screen.getByLabelText(/create drone mission request/i));
     await user.click(screen.getByRole('button', { name: /approve/i }));
 
     await waitFor(() => expect(approve).toHaveBeenCalledWith('alert-zone-a-1', ['act-shelter-b']));
@@ -78,7 +78,9 @@ describe('AlertCard', () => {
 
     await user.click(screen.getByRole('button', { name: /approve/i }));
     // Both actions checked → shelter + drone message (appears in the live region and the toast).
-    expect((await screen.findAllByText(/Drone Mission Request Created\./)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Drone Mission Request Created\./)).length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('disables Approve when no action is checked', async () => {
