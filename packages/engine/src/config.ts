@@ -43,4 +43,18 @@ export function validateEngineConfig(config: EngineConfig): void {
       throw new Error(`${name} must contain a valid non-negative min/max range`);
     }
   }
+  if (
+    config.backupRangeMinutes &&
+    (config.avgBackupMinutes < config.backupRangeMinutes.min ||
+      config.avgBackupMinutes > config.backupRangeMinutes.max)
+  ) {
+    throw new Error('avgBackupMinutes must fall inside backupRangeMinutes');
+  }
+  if (
+    config.responseRangeMinutes &&
+    (config.estimatedResponseMinutes < config.responseRangeMinutes.min ||
+      config.estimatedResponseMinutes > config.responseRangeMinutes.max)
+  ) {
+    throw new Error('estimatedResponseMinutes must fall inside responseRangeMinutes');
+  }
 }

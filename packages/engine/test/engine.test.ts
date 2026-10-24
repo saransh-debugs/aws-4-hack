@@ -37,6 +37,7 @@ import {
   buildDowntownHoustonRegistry,
   validateOperationalGeography,
 } from '../src/sources/geography';
+import { proveFreshWorkflow } from '../src/workflowProof';
 
 describe('buildScenario (H2)', () => {
   it('calm returns only calm events', () => {
@@ -321,6 +322,67 @@ describe('source normalizers and ingest', () => {
     expect(registry.zones).toHaveLength(1);
     expect(registry.roads).toHaveLength(1);
     expect(registry.shelters[0]?.id).toBe('fema-1');
+  });
+
+  it('proves fresh provider data through geography, patient counts, and analysis', () => {
+    const now = new Date('2026-10-24T14:00:00.000Z');
+    const geography = buildDowntownHoustonRegistry(
+      [
+        {
+          id: 'fema-1',
+          name: 'Verified FEMA receiving site',
+          lat: 29.6847,
+          lon: -95.4107,
+          capacity: 100,
+          status: 'active',
+        },
+      ],
+      now,
+    );
+    const proof = proveFreshWorkflow({
+      now,
+      geography,
+      events: [
+        {
+          id: 'fresh-outage',
+          type: 'outage',
+          lat: 29.7575,
+          lon: -95.365,
+          description: 'CenterPoint outage',
+          severity: 'critical',
+          zoneId: 'zone-a',
+          source: 'centerpoint',
+          timestamp: now.toISOString(),
+        },
+        {
+          id: 'fresh-closure',
+          type: 'road_closure',
+          lat: 29.765,
+          lon: -95.345,
+          description: 'TranStar bridge closure',
+          severity: 'high',
+          source: 'houston-transtar',
+          timestamp: now.toISOString(),
+        },
+      ],
+      patientCounts: [
+        { zip: '77002', electricityDependentCount: 200 },
+        { zip: '77010', electricityDependentCount: 140 },
+      ],
+      providerFetchedAt: {
+        centerpoint: now.toISOString(),
+        'houston-transtar': now.toISOString(),
+        empower: now.toISOString(),
+      },
+    });
+    expect(proof.ready).toBe(true);
+    expect(proof.qualityIssues).toEqual([]);
+    expect(proof.results[0]).toMatchObject({
+      zoneId: 'zone-a',
+      isolated: true,
+      dependentPatients: 340,
+      candidateShelterIds: ['fema-1'],
+    });
   });
 
   it('normalizes active CenterPoint ArcGIS outages and ignores restored records', () => {

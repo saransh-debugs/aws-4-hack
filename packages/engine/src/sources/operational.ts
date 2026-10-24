@@ -258,12 +258,13 @@ function xmlValue(xml: string, tag: string): string | undefined {
 export function normalizeTranStarLaneClosures(xml: string): DemoEvent[] {
   return [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].flatMap(([, item], index) => {
     if (!item) return [];
-    const point = xmlValue(item, 'georss:point') ?? xmlValue(item, 'point');
-    const coordinates = point?.split(/\s+/).map(Number);
-    if (!coordinates || coordinates.length < 2 || !coordinates.every(Number.isFinite)) return [];
-    const [lat, lon] = coordinates;
     const title = xmlValue(item, 'title') ?? 'Houston TranStar lane closure';
     const description = xmlValue(item, 'description') ?? title;
+    if (/status:\s*inactive/i.test(description)) return [];
+    const point = xmlValue(item, 'georss:point') ?? xmlValue(item, 'point');
+    const coordinates = point?.split(/\s+/).map(Number) ?? tranStarReferencePoint(title);
+    if (!coordinates || coordinates.length < 2 || !coordinates.every(Number.isFinite)) return [];
+    const [lat, lon] = coordinates;
     const timestamp = xmlValue(item, 'pubDate');
     return [
       {
@@ -284,12 +285,20 @@ export function normalizeTranStarLaneClosures(xml: string): DemoEvent[] {
   });
 }
 
+/** TranStar's RSS currently omits GeoRSS for some records. Known monitored corridors
+ * use checked-in representative points; unknown records are quarantined instead of guessed. */
+function tranStarReferencePoint(title: string): [number, number] | undefined {
+  if (/IH-10.*IH-610|IH-610.*IH-10/i.test(title)) return [29.765, -95.345];
+  if (/IH-45|US-59|IH-69/i.test(title)) return [29.755, -95.35];
+  return undefined;
+}
+
 export async function fetchTranStarLaneClosures(
   url = TRANSTAR_LANE_CLOSURES_RSS_URL,
   fetchImpl: typeof fetch = fetch,
 ): Promise<DemoEvent[]> {
   const response = await fetchImpl(url, {
-    headers: { Accept: 'application/rss+xml, application/xml' },
+    headers: { 'User-Agent': 'GridRisk/0.0 (emergency-demo@example.com)' },
   });
   if (!response.ok) throw new Error(`Houston TranStar request failed: ${response.status}`);
   return normalizeTranStarLaneClosures(await response.text());

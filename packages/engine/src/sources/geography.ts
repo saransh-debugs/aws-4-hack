@@ -1,6 +1,5 @@
 import type { MapData, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
 import { MapDataSchema } from '@gridrisk/shared';
-import { BRIDGE_ROAD, ZONE_A } from '@gridrisk/shared/fixtures';
 
 /**
  * The first operational slice is deliberately small: the Downtown Houston
@@ -23,6 +22,37 @@ export const DOWNTOWN_HOUSTON_VALIDATION_SOURCES = [
     url: 'https://services2.arcgis.com/ZQ4jTQn6k7VPXEwO/ArcGIS/rest/services/HHS_emPOWER_REST_Service_Public/FeatureServer/1',
   },
 ] as const;
+
+const DOWNTOWN_ZONE: Zone = {
+  id: 'zone-a',
+  name: 'Downtown Houston / East Downtown operating area',
+  polygon: {
+    type: 'Polygon',
+    coordinates: [
+      [
+        [-95.38, 29.745],
+        [-95.35, 29.745],
+        [-95.35, 29.77],
+        [-95.38, 29.77],
+        [-95.38, 29.745],
+      ],
+    ],
+  },
+  zips: ['77002', '77010'],
+  accessRoadIds: ['road-i10-east-downtown'],
+};
+
+const DOWNTOWN_ACCESS_ROAD: RoadSegment = {
+  id: 'road-i10-east-downtown',
+  name: 'IH-10 East / IH-610 connector access',
+  line: {
+    type: 'LineString',
+    coordinates: [
+      [-95.345, 29.77],
+      [-95.345, 29.755],
+    ],
+  },
+};
 
 export interface OperationalGeographyValidation {
   valid: boolean;
@@ -53,12 +83,12 @@ export function validateOperationalGeography(mapData: MapData): OperationalGeogr
 
 /** Build the validated Downtown registry with the latest shelter snapshot. */
 export function buildDowntownHoustonRegistry(shelters: Shelter[] = [], now = new Date()): MapData {
-  const zones: Zone[] = [ZONE_A];
-  const roads: RoadSegment[] = [BRIDGE_ROAD];
+  const zones: Zone[] = [DOWNTOWN_ZONE];
+  const roads: RoadSegment[] = [DOWNTOWN_ACCESS_ROAD];
   const mapData: MapData = {
     version: `downtown-houston-${now.toISOString().slice(0, 10)}`,
     operatingAreaId: DOWNTOWN_HOUSTON_AREA_ID,
-    operatingAreaName: 'Downtown Houston emergency planning area (ZIPs 77002 and 77010)',
+    operatingAreaName: 'Downtown Houston / East Downtown operating area (ZIPs 77002 and 77010)',
     validatedAt: now.toISOString(),
     validationSources: DOWNTOWN_HOUSTON_VALIDATION_SOURCES.map((source) => ({
       ...source,

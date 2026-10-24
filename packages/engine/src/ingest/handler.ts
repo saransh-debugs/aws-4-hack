@@ -3,6 +3,7 @@ import type { MapData, Shelter, SourceHealth, SourceHealthStatus } from '@gridri
 import {
   DeleteItemCommand,
   DynamoDBClient,
+  GetItemCommand,
   PutItemCommand,
   ScanCommand,
 } from '@aws-sdk/client-dynamodb';
@@ -128,6 +129,19 @@ async function expireMissingProviderEvents(
   }
 }
 
+async function deleteMissingShelters(activeIds: Set<string>, tableName: string): Promise<void> {
+  const result = await dynamo.send(
+    new ScanCommand({ TableName: tableName, ProjectionExpression: 'id' }),
+  );
+  const items = (result as { Items?: Array<{ id?: { S?: string } }> }).Items ?? [];
+  for (const item of items) {
+    const id = item.id?.S;
+    if (id && !activeIds.has(id)) {
+      await dynamo.send(new DeleteItemCommand({ TableName: tableName, Key: { id: { S: id } } }));
+    }
+  }
+}
+
 async function writeHealth(
   source: string,
   status: SourceHealthStatus,
@@ -137,13 +151,22 @@ async function writeHealth(
 ): Promise<void> {
   if (!deps.tableName) return;
   const now = new Date().toISOString();
+  const previous = await dynamo.send(
+    new GetItemCommand({ TableName: deps.tableName, Key: { source: { S: source } } }),
+  );
+  const previousItem = (previous as { Item?: Record<string, { S?: string }> }).Item;
+  const previousLastSuccess = previousItem?.lastSuccessAt?.S;
   const health: SourceHealth = {
     source,
     status,
     fetchedAt: now,
     recordCount,
     maxAgeMinutes: Number(process.env.GRIDRISK_SNAPSHOT_MAX_AGE_MINUTES ?? 60),
-    ...(status === 'healthy' ? { lastSuccessAt: now } : {}),
+    ...(status === 'healthy'
+      ? { lastSuccessAt: now }
+      : previousLastSuccess
+        ? { lastSuccessAt: previousLastSuccess }
+        : {}),
     ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
   };
   const client = new DynamoDBClient({});
@@ -276,9 +299,11 @@ export async function handler(): Promise<{ count: number }> {
     putItemCommand: (input) => new PutItemCommand(input),
   });
   let currentShelters: Shelter[] = [];
+  let shelterFetchSucceeded = false;
   if (sheltersTableName) {
     try {
       currentShelters = await fetchFemaOpenShelters();
+      shelterFetchSucceeded = true;
       await ingestShelters({
         fetchShelters: async () => currentShelters,
         dynamo,
@@ -293,12 +318,16 @@ export async function handler(): Promise<{ count: number }> {
           tableName: healthTableName,
         },
       );
+      await deleteMissingShelters(
+        new Set(currentShelters.map((shelter) => shelter.id)),
+        sheltersTableName,
+      );
     } catch (error) {
       console.error('FEMA shelter ingest failed; retaining existing shelters.', error);
       await writeHealth('fema-shelters', 'error', 0, { tableName: healthTableName }, error);
     }
   }
-  if (geographyTableName && currentShelters.length > 0) {
+  if (geographyTableName && shelterFetchSucceeded) {
     const mapData = buildDowntownHoustonRegistry(currentShelters);
     await dynamo.send(
       new PutItemCommand({ TableName: geographyTableName, Item: geographyItemFor(mapData) }),

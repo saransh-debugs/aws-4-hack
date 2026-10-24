@@ -10,6 +10,7 @@ import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as location from 'aws-cdk-lib/aws-location';
 import * as scheduler from 'aws-cdk-lib/aws-scheduler';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -566,16 +567,17 @@ function handler(event) {
     // ---------------------------------------------------------------------
     // Task 12: EventBridge Scheduler every 5 min -> ingest Lambda (least privilege)
     // ---------------------------------------------------------------------
+    const ingestLogGroup = new logs.LogGroup(this, 'IngestFnLogs', {
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
     const ingestFn = new NodejsFunction(this, 'IngestFn', {
       ...commonLambda,
       memorySize: 512,
       timeout: Duration.seconds(60),
       entry: path.join(REPO_ROOT, 'packages/engine/src/ingest/handler.ts'),
       handler: 'handler',
-      logGroup: new logs.LogGroup(this, 'IngestFnLogs', {
-        retention: logs.RetentionDays.ONE_WEEK,
-        removalPolicy: RemovalPolicy.DESTROY,
-      }),
+      logGroup: ingestLogGroup,
       environment: {
         EVENTS_TABLE: eventsTable.tableName,
         ALERTS_TABLE: alertsTable.tableName,
@@ -599,6 +601,21 @@ function handler(event) {
     sheltersTable.grantWriteData(ingestFn);
     snapshotsTable.grantWriteData(ingestFn);
     geographyTable.grantReadWriteData(ingestFn);
+
+    const providerErrorMetric = new logs.MetricFilter(this, 'ProviderErrorMetric', {
+      logGroup: ingestLogGroup,
+      metricNamespace: 'GridRisk/Providers',
+      metricName: 'ProviderErrors',
+      filterPattern: logs.FilterPattern.literal('"Provider health" "error"'),
+      metricValue: '1',
+      defaultValue: 0,
+    }).metric({ statistic: 'Sum', period: Duration.minutes(10) });
+    providerErrorMetric.createAlarm(this, 'ProviderErrorAlarm', {
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'A live GridRisk provider failed during the last ingest window.',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
 
     const schedulerRole = new iam.Role(this, 'IngestSchedulerRole', {
       assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),

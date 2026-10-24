@@ -1,5 +1,6 @@
 import type { DemoEvent, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
 import { DemoEventSchema } from '@gridrisk/shared';
+import { booleanPointInPolygon, point } from '@turf/turf';
 
 export type DataQualityCode =
   | 'duplicate_id'
@@ -59,6 +60,17 @@ export function validateDataQuality(
           code: 'stale_event',
           id: event.id,
           message: `Event ${event.id} is older than ${maxAge} minutes`,
+        });
+      }
+    }
+
+    if (event.zoneId) {
+      const zone = zones.find((candidate) => candidate.id === event.zoneId);
+      if (zone && !booleanPointInPolygon(point([event.lon, event.lat]), zone.polygon)) {
+        issues.push({
+          code: 'event_outside_zone',
+          id: event.id,
+          message: `Event ${event.id} is outside the boundary of ${event.zoneId}`,
         });
       }
     }
