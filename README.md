@@ -4,8 +4,9 @@ GridRisk links separate emergency feeds (power outages, flooded roads) into a si
 risk, works out how much time is left, and proposes actions that **a human approves** before
 anything is dispatched. Built on AWS: Amazon Location, Bedrock, Step Functions and SNS.
 
-> Status: **Prototype integration**. The backend, agent, scheduled data ingest, provider adapters, and
-> offline snapshots are implemented. The web map and live-provider validation still need follow-through.
+> Status: **Prototype integration**. The backend, agent, scheduled data ingest, provider adapters,
+> offline snapshots, and adapter-backed web map are implemented. Live-provider validation and the
+> final alert-card UX still need follow-through.
 
 ## Quickstart
 
@@ -38,7 +39,7 @@ engine readiness checklist are in [docs/DATA.md](docs/DATA.md).
 | `packages/shared` | `@gridrisk/shared` | everyone | **Real** zod contracts + Houston fixtures                                   |
 | `packages/engine` | `@gridrisk/engine` | Tanisha  | Deterministic engine, provider adapters, snapshots, and ingest              |
 | `packages/agent`  | `@gridrisk/agent`  | all four | `runAgent` stub + **real** template fallback                                |
-| `apps/web`        | `@gridrisk/web`    | Bushra   | Dark shell + event feed; map and alert UI remain TODO                       |
+| `apps/web`        | `@gridrisk/web`    | Bushra   | Adapter-backed dark shell, event feed, and map; alert UI remains TODO       |
 | `infra`           | `@gridrisk/infra`  | Darsh    | Deployable API, approval workflow, Location resources, and scheduled ingest |
 
 Packages export TypeScript source directly (`"exports": "./src/index.ts"`), so there is no build
@@ -58,7 +59,8 @@ snapshots DynamoDB tables, a
 Cognito user pool, an HTTP API with a JWT authorizer on every route, the read/simulate/approve
 Lambdas, a Step Functions human-approval workflow, an SNS dispatch topic, an Amazon Location key
 
-- route calculator, and an EventBridge schedule for ingest. H6 values are published to SSM.
+- route calculator, an authenticated `/map-data` registry endpoint, and an EventBridge schedule for
+  ingest. H6 values are published to SSM.
 
 ### Env vars
 
@@ -131,6 +133,9 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "content-type: application/
 
 # Back to calm
 curl -s -X POST -H "Authorization: Bearer $TOKEN" "$API/simulate/reset" | jq '.events | length'
+
+# Map registry used by the live web map
+curl -s -H "Authorization: Bearer $TOKEN" "$API/map-data" | jq '{zones: (.zones | length), roads: (.roads | length), shelters: (.shelters | length)}'
 ```
 
 ### Map status

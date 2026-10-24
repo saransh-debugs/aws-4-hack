@@ -28,7 +28,7 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
 
 ### M1
 
-- [ ] **Task 2: App shell, theme, store, MockAdapter**
+- [x] **Task 2: App shell, theme, store, MockAdapter**
   - Objective: a static command-center layout running fully offline.
   - Guidance:
     - Keep the M0 shell (`src/App.tsx`), including the top bar "GridRisk • LIVE FEED • SYNTHETIC DATA".
@@ -41,7 +41,7 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
     - Add a dev toolbar with Simulate and Reset buttons.
   - Tests: the layout renders; store reducers; `MockAdapter.simulate` adds the escalation events and one pending alert; `approve` sets the alert to dispatched; approving twice fails, matching the API's 409.
   - Demo: the shell shows the calm event count, and Simulate increases it.
-- [ ] **Task 3: MapComponent**
+- [x] **Task 3: MapComponent**
   - Objective: a Houston map showing events, zones and closures.
   - Guidance:
     - Use `react-map-gl/maplibre`, centered on `HOUSTON_CENTER` (29.76, −95.37).
@@ -80,7 +80,7 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
 - [ ] **Task 13b: Real API and auth** (with Darsh)
   - Objective: the UI runs against the deployed backend.
   - Guidance:
-    - Point `LiveAdapter` at the real API and poll `/events` and `/alerts` every 3 s.
+    - Point `LiveAdapter` at the real API and poll `/events`, `/alerts`, and `/map-data` every 3 s.
     - Sign in with Cognito using Amplify Auth, and send `Authorization: Bearer`.
     - Show an offline/error banner instead of failing silently.
     - The collapsible tool-trace panel (H9) is Saransh's; leave a slot for it in the AlertCard.

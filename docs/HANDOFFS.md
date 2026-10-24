@@ -23,10 +23,15 @@ When the real implementation lands, the stub is replaced behind the same signatu
 | H5  | `runAgent(input)`                                       | Saransh → Darsh                  | yes (template) | M2      | 🟡 stub delivered                  |
 | H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | 🟢 code-complete                   |
 | H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | 🟢 code-complete                   |
-| H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | 🟡 interface only                  |
+| H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | ✅ adapter + contract tests        |
 | H9  | Agent `toolTrace` format on alert                       | Saransh → Bushra                 | fixture        | M2      | 🟡 schema only                     |
 
 Status key: ⬜ not started · 🟡 stub or partial · 🟢 code-complete (CDK merged, not yet deployed) · ✅ real and merged
+
+The web map also depends on the authenticated `GET /map-data` route documented in
+[CONTRACTS.md](CONTRACTS.md#http-api). It is implemented by `infra/lambda/getMapData.ts`, exposed by
+the CDK stack, and consumed by `LiveAdapter`; the deployed response is currently seeded from the
+shared Houston registry rather than a live GIS refresh.
 
 > **H6/H7 (Darsh):** the CDK stack is built and `cdk synth` + infra tests are green, so the
 > approve endpoint, Step Functions workflow, and the SSM-published `.env` values are code-complete.
