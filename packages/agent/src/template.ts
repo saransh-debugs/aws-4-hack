@@ -2,8 +2,12 @@
  * Deterministic alert template. REAL and permanent: this is the fallback whenever the
  * model fails, times out, or produces numbers that do not match the engine.
  * Every number in the output comes straight from the EngineResult.
+ *
+ * SDK-free (the web app imports it via `@gridrisk/agent/template`). Action building lives in
+ * ./actions, which is also SDK-free.
  */
-import type { AlertCardData, EngineResult, ProposedAction, Shelter, Zone } from '@gridrisk/shared';
+import type { AlertCardData, EngineResult, Shelter, Zone } from '@gridrisk/shared';
+import { buildProposedActions } from './actions';
 
 export interface TemplateOptions {
   zone: Zone;
@@ -39,21 +43,11 @@ export function buildTemplateAlert(result: EngineResult, options: TemplateOption
     `Deterministic engine calculates ${result.dependentPatients} electricity-dependent patients here, with an average backup of just ${formatDuration(result.avgBackupMinutes)}.`,
   );
 
-  const proposedActions: ProposedAction[] = [];
-  const shelter = shelters.find((s) => s.id === result.candidateShelterIds[0]);
-  if (shelter) {
-    proposedActions.push({
-      id: `act-${shelter.id}`,
-      type: 'activate_shelter',
-      label: `Activate ${shelter.name} (Capacity: ${shelter.capacity})`,
-      params: { shelterId: shelter.id },
-    });
-  }
-  proposedActions.push({
-    id: `act-drone-${zone.id}`,
-    type: 'dispatch_drone',
-    label: `Dispatch Aerial Recon Drone to ${zoneName}`,
-    params: { zoneId: zone.id },
+  // Fixed fallback actions: a shelter (when one exists) and a recon drone.
+  const proposedActions = buildProposedActions(['activate_shelter', 'dispatch_drone'], {
+    zone,
+    shelters,
+    result,
   });
 
   return {
