@@ -62,6 +62,23 @@ describe('checkGrounding', () => {
     expect(checkGrounding(alert, result, ctx).ok).toBe(false);
   });
 
+  it('rejects a duration used as a count ("120 patients", "75 evacuees")', () => {
+    for (const p of [
+      '120 patients need help.',
+      'Room for 75 evacuees.',
+      '45 dependent patients.',
+    ]) {
+      const out = checkGrounding(alertWith([p]), result, ctx);
+      expect(out.ok, p).toBe(false);
+      expect(out.errors.join(' ')).toContain('count');
+    }
+  });
+
+  it('accepts hyphenated durations ("45-minute window")', () => {
+    expect(checkGrounding(alertWith(['A 45-minute window remains.']), result, ctx).ok).toBe(true);
+    expect(checkGrounding(alertWith(['A 30-minute window remains.']), result, ctx).ok).toBe(false);
+  });
+
   it('rejects a count used as a duration ("3 HOURS")', () => {
     // 3 is a valid-looking count elsewhere, but it is not a grounded duration.
     const alert = alertWith(['Only 3 HOURS of backup remain.']);

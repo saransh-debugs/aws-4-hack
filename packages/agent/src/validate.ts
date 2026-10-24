@@ -50,11 +50,16 @@ function maskNames(text: string, names: string[]): string {
   return masked;
 }
 
-type Unit = 'hour' | 'minute' | 'none';
+type Unit = 'hour' | 'minute' | 'count' | 'none';
+
+/** Nouns that make a number a count, so a duration can't pose as one ("120 patients"). */
+const COUNT_NOUN =
+  /^[\s-]*(?:[a-z]+[\s-]+){0,2}?(?:patients?|people|persons?|residents?|evacuees?|calls?|roads?|bridges?|shelters?|beds?|outages?|closures?|events?|spaces?|spots?)\b/i;
 
 function unitFor(trailing: string): Unit {
-  if (/^\s*hours?\b/i.test(trailing)) return 'hour';
-  if (/^\s*(?:minutes?|mins?)\b/i.test(trailing)) return 'minute';
+  if (/^[\s-]*hours?\b/i.test(trailing)) return 'hour';
+  if (/^[\s-]*(?:minutes?|mins?)\b/i.test(trailing)) return 'minute';
+  if (COUNT_NOUN.test(trailing)) return 'count';
   return 'none';
 }
 
@@ -112,6 +117,10 @@ export function checkGrounding(
       } else if (unit === 'minute') {
         if (!durationMinutes.has(value)) {
           errors.push(`"${value} minutes" in "${text.trim()}" is not a grounded duration`);
+        }
+      } else if (unit === 'count') {
+        if (!counts.has(value)) {
+          errors.push(`"${value}" in "${text.trim()}" is not a grounded count`);
         }
       } else {
         // Bare number: a valid count, or a duration quoted without a unit.
