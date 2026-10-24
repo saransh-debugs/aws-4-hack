@@ -353,13 +353,20 @@ export function overviewBounds(
   ];
 }
 
-/** Top-center of a zone (its north edge, midway across), where the zone's label sits. */
-export function zoneLabelAnchor(polygon: Polygon): [number, number] {
+/**
+ * Where a zone's label sits: centered on its north edge, or its south edge with `edge: 'south'`
+ * (neighbouring zones alternate, so their labels don't collide).
+ */
+export function zoneLabelAnchor(
+  polygon: Polygon,
+  edge: 'north' | 'south' = 'north',
+): [number, number] {
   const ring = polygon.coordinates[0] ?? [];
   if (ring.length === 0) return [0, 0];
   const lons = ring.map((c) => c[0]);
   const lats = ring.map((c) => c[1]);
-  return [(Math.min(...lons) + Math.max(...lons)) / 2, Math.max(...lats)];
+  const lat = edge === 'north' ? Math.max(...lats) : Math.min(...lats);
+  return [(Math.min(...lons) + Math.max(...lons)) / 2, lat];
 }
 
 /** The point a fraction `t` (0..1) of the way along a polyline, by distance. */

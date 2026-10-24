@@ -218,6 +218,13 @@ body {
     monospace;
   white-space: nowrap;
 }
+.shelter-pin__status {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.22);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
 .shelter-pin--active {
   background: #16a34a;
   box-shadow:
@@ -257,6 +264,9 @@ body {
   top: 12px;
   right: 12px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: calc(100% - 24px);
   gap: 8px;
   font:
     600 12px/1 ui-monospace,
@@ -297,8 +307,10 @@ body {
 
 .map-legend {
   position: absolute;
-  top: 12px;
+  bottom: 12px;
   left: 12px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
   min-width: 170px;
   border-radius: 8px;
   background: rgb(255 255 255 / 0.96);
@@ -378,5 +390,88 @@ body {
   .map-pin--new::before,
   .feed-item--new {
     animation: none;
+  }
+}
+
+/* ---------- Layout: a wide map of fixed height, collapsible sections below ---------- */
+.map-frame {
+  position: relative;
+  height: clamp(380px, 56vh, 620px);
+  overflow: hidden;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+}
+.panel {
+  overflow: hidden;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  background: #0f172a;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+}
+.panel__head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #111c33;
+  color: #94a3b8;
+  text-align: left;
+}
+.panel:not(.panel--collapsed) .panel__head {
+  border-bottom: 1px solid #1e293b;
+}
+.panel__head:hover {
+  background: #16233f;
+  color: #f8fafc;
+}
+.panel__head:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: -2px;
+}
+.panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font:
+    600 11px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+.panel__chevron {
+  transition: transform 150ms ease-out;
+}
+.panel__body {
+  max-height: 32rem;
+  overflow-y: auto;
+  padding: 12px;
+}
+.panel__badge {
+  min-width: 1.4rem;
+  padding: 2px 6px;
+  border-radius: 9999px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font:
+    600 11px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0;
+  text-align: center;
+}
+.panel__badge--alarm {
+  background: #dc2626;
+  color: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel__chevron {
+    transition: none;
   }
 }

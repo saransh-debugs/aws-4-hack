@@ -33,7 +33,7 @@ const ITEMS: Item[] = [
 ];
 
 export function MapLegend() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   return (
     <div className="map-legend">
       <button

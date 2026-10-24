@@ -307,16 +307,17 @@ export default function MapComponent() {
           />
         </Source>
 
-        {ZONES.map((z) => {
+        {ZONES.map((z, i) => {
           const f = geo.zones.features.find((x) => x.properties.id === z.id);
-          const [lon, lat] = zoneLabelAnchor(z.polygon);
+          const edge = i % 2 === 0 ? 'north' : 'south';
+          const [lon, lat] = zoneLabelAnchor(z.polygon, edge);
           return (
             <Marker
               key={`label-${z.id}`}
               latitude={lat}
               longitude={lon}
-              anchor="bottom"
-              offset={[0, -4]}
+              anchor={edge === 'north' ? 'bottom' : 'top'}
+              offset={[0, edge === 'north' ? -4 : 4]}
             >
               <ZoneLabel
                 name={z.name}

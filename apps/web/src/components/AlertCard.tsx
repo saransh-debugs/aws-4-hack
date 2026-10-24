@@ -10,7 +10,8 @@
  * The approval call only sends the actionIds that are still checked, and Approve is disabled when
  * none are checked. The agent tool-trace panel (H9) is rendered inside the card.
  */
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { AlertCardData, ActionType } from '@gridrisk/shared';
 import { useAdapter } from '../data/AdapterContext';
@@ -48,6 +49,13 @@ export function AlertCard({ alert, onApproved, clock }: AlertCardProps) {
   const [state, setState] = useState<ApproveState>(dispatched ? 'dispatched' : 'idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Pending alerts start open; dispatched ones start closed and close a few seconds after dispatch.
+  const [expanded, setExpanded] = useState(!dispatched);
+  useEffect(() => {
+    if (state !== 'dispatched' || !toast) return;
+    const id = setTimeout(() => setExpanded(false), 6000);
+    return () => clearTimeout(id);
+  }, [state, toast]);
   const [checked, setChecked] = useState<Set<string>>(
     () => new Set(alert.proposedActions.map((a) => a.id)),
   );
@@ -97,79 +105,108 @@ export function AlertCard({ alert, onApproved, clock }: AlertCardProps) {
         </span>
       )}
 
-      <header className="space-y-1">
-        <h3 id={headingId} className="font-mono text-sm font-semibold tracking-wide text-red-300">
-          {alert.title}
-        </h3>
-        <p className="font-mono text-xs text-slate-300">
-          {state === 'dispatched' ? '✅ DISPATCHED' : 'PENDING'}
-        </p>
-        <p className="font-mono text-xs text-amber-300 tabular-nums">
-          ⏱️ ISOLATION WINDOW: {countdown.label}
-        </p>
-      </header>
-
-      <ul className="list-disc space-y-1 pl-5 text-[13px] leading-snug text-slate-100">
-        {alert.points.map((point, i) => (
-          <li key={i}>{point}</li>
-        ))}
-      </ul>
-
-      {state !== 'dispatched' && (
-        <fieldset className="space-y-1.5">
-          <legend className="text-[11px] font-semibold tracking-[0.14em] text-slate-300 uppercase">
-            Proposed actions
-          </legend>
-          {alert.proposedActions.map((action) => {
-            const id = `${headingId}-${action.id}`;
-            return (
-              <label key={action.id} htmlFor={id} className="flex items-start gap-2 text-[13px]">
-                <input
-                  id={id}
-                  type="checkbox"
-                  checked={checked.has(action.id)}
-                  onChange={() => toggle(action.id)}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-sky-500"
-                />
-                <span className="text-slate-100">{action.label}</span>
-              </label>
-            );
-          })}
-        </fieldset>
-      )}
-
-      {state !== 'dispatched' && (
+      <header className="flex items-start gap-2">
         <button
           type="button"
-          onClick={() => void approve()}
-          disabled={state === 'loading' || noneChecked}
-          className="inline-flex items-center gap-1.5 rounded border border-sky-500 bg-sky-600/20 px-3 py-1.5 font-mono text-xs font-semibold text-sky-100 hover:bg-sky-600/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:opacity-50"
+          aria-expanded={expanded}
+          aria-controls={`${headingId}-body`}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} alert`}
+          onClick={() => setExpanded((e) => !e)}
+          className="mt-0.5 rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-2 focus-visible:outline-sky-400"
         >
-          {state === 'loading' ? 'Approving…' : 'Approve'}
+          <ChevronDown
+            aria-hidden="true"
+            size={16}
+            className={`transition-transform motion-reduce:transition-none ${expanded ? '' : '-rotate-90'}`}
+          />
         </button>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 id={headingId} className="font-mono text-sm font-semibold tracking-wide text-red-300">
+            {alert.title}
+          </h3>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs">
+            <span
+              className={`rounded-sm px-1.5 py-px font-semibold ${
+                state === 'dispatched'
+                  ? 'bg-green-500/15 text-green-300'
+                  : 'bg-amber-500/15 text-amber-200'
+              }`}
+            >
+              {state === 'dispatched' ? '✅ DISPATCHED' : 'PENDING'}
+            </span>
+            <span className="text-amber-300 tabular-nums">
+              ⏱️ ISOLATION WINDOW: {countdown.label}
+            </span>
+          </p>
+        </div>
+      </header>
+
+      {expanded && (
+        <div id={`${headingId}-body`} className="space-y-3">
+          <ul className="list-disc space-y-1 pl-5 text-[13px] leading-snug text-slate-100">
+            {alert.points.map((point, i) => (
+              <li key={i}>{point}</li>
+            ))}
+          </ul>
+
+          {state !== 'dispatched' && (
+            <fieldset className="space-y-1.5">
+              <legend className="text-[11px] font-semibold tracking-[0.14em] text-slate-300 uppercase">
+                Proposed actions
+              </legend>
+              {alert.proposedActions.map((action) => {
+                const id = `${headingId}-${action.id}`;
+                return (
+                  <label
+                    key={action.id}
+                    htmlFor={id}
+                    className="flex items-start gap-2 text-[13px]"
+                  >
+                    <input
+                      id={id}
+                      type="checkbox"
+                      checked={checked.has(action.id)}
+                      onChange={() => toggle(action.id)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-sky-500"
+                    />
+                    <span className="text-slate-100">{action.label}</span>
+                  </label>
+                );
+              })}
+            </fieldset>
+          )}
+
+          {state !== 'dispatched' && (
+            <button
+              type="button"
+              onClick={() => void approve()}
+              disabled={state === 'loading' || noneChecked}
+              className="inline-flex items-center gap-1.5 rounded border border-sky-500 bg-sky-600/20 px-3 py-1.5 font-mono text-xs font-semibold text-sky-100 hover:bg-sky-600/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:opacity-50"
+            >
+              {state === 'loading' ? 'Approving…' : 'Approve'}
+            </button>
+          )}
+
+          {state === 'error' && errorMessage && (
+            <p role="alert" className="font-mono text-xs text-red-300">
+              {errorMessage}
+            </p>
+          )}
+
+          {toast && (
+            <p className="rounded border border-green-500/40 bg-green-500/10 px-2.5 py-1.5 font-mono text-xs text-green-200">
+              {toast}
+            </p>
+          )}
+
+          <ToolTracePanel alert={alert} />
+        </div>
       )}
 
-      {state === 'dispatched' && (
-        <p className="font-mono text-xs font-semibold text-green-300">✅ DISPATCHED</p>
-      )}
-
-      {state === 'error' && errorMessage && (
-        <p role="alert" className="font-mono text-xs text-red-300">
-          {errorMessage}
-        </p>
-      )}
-
-      {/* Polite toast after a successful dispatch. */}
+      {/* Polite toast after a successful dispatch (stays mounted while collapsed). */}
       <div aria-live="polite" className="sr-only">
         {toast}
       </div>
-      {toast && (
-        <p className="rounded border border-green-500/40 bg-green-500/10 px-2.5 py-1.5 font-mono text-xs text-green-200">
-          {toast}
-        </p>
-      )}
-
-      <ToolTracePanel alert={alert} />
     </motion.article>
   );
 }
