@@ -35,7 +35,7 @@ plan and data-source research are in [PLAN.md](PLAN.md).
 | ----------------- | ------------------ | -------- | -------------------------------------------- |
 | `packages/shared` | `@gridrisk/shared` | everyone | **Real** zod contracts + Houston fixtures    |
 | `packages/engine` | `@gridrisk/engine` | Tanisha  | `buildScenario` + `analyze` stubs            |
-| `packages/agent`  | `@gridrisk/agent`  | Saransh  | `runAgent` stub + **real** template fallback |
+| `packages/agent`  | `@gridrisk/agent`  | all four | `runAgent` stub + **real** template fallback |
 | `apps/web`        | `@gridrisk/web`    | Bushra   | Dark shell + `DataAdapter` interface         |
 | `infra`           | `@gridrisk/infra`  | Darsh    | Empty CDK stack (nothing deployed)           |
 

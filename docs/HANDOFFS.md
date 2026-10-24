@@ -28,6 +28,10 @@ When the real implementation lands, the stub is replaced behind the same signatu
 
 Status key: ⬜ not started · 🟡 stub or partial · ✅ real and merged
 
+The agent (H5, H9) is built in four slices, one per person: A1 tools (Tanisha), A2 output and
+grounding (Bushra), A3 Converse loop (Saransh), A4 orchestration and Lambda (Darsh). The
+interfaces between slices are in [todo/saransh-agent.md](../todo/saransh-agent.md#agent-interfaces-freeze-at-kick-off).
+
 ## Where the stubs live
 
 | ID  | Import / file                                                                            |
