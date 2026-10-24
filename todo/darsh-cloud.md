@@ -89,6 +89,17 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
   - Write the README runbook: setup, env vars, deploy, demo mode.
   - Do 5 reset → simulate → approve runs in a row, in both mock and live mode.
 
+## Agent slice: A4 – Orchestration, fallback and Lambda (M2)
+
+The agent is split four ways. Yours is `runAgent` itself (timeout and template fallback), the
+RunAgent Lambda handler and the `agent:local` CLI (`packages/agent/src/runAgent.ts`,
+`handler.ts`, `scripts/local.ts`). It feeds straight into your Task 14. You review Saransh's slice
+(A3). Details, interfaces and tests are in
+[saransh-agent.md](saransh-agent.md#a4--orchestration-fallback-and-lambda-darsh--m2--task-9--agent-side-of-task-14).
+
+Also: `/packages/agent/` in `.github/CODEOWNERS` lists only Saransh. Add the other three handles
+there so slice owners can approve each other's PRs.
+
 ## Branch naming
 
 `feat/darsh-<task>`, e.g. `feat/darsh-task10-core-infra`.

@@ -101,6 +101,13 @@ You own the EOC dashboard: layout, map, feed, alert card, approval UX and data a
 - Text contrast meets WCAG AA on slate-900. Don't rely on color alone: add severity text or an icon.
 - Respect `prefers-reduced-motion` for the pulse and slide animations.
 
+## Agent slice: A2 – Output and grounding (M1)
+
+The agent is split four ways. Yours turns Claude's answer into the `AlertCardData` your
+AlertCard renders, and rejects any number not from the engine (`packages/agent/src/submit.ts`,
+`actions.ts`, `assemble.ts`, `validate.ts`). You review Darsh's slice (A4). Details, interfaces
+and tests are in [saransh-agent.md](saransh-agent.md#a2--output-and-grounding-bushra--m1--part-of-task-9).
+
 ## Branch naming
 
 `feat/bushra-<task>`, e.g. `feat/bushra-task2-shell`, `feat/bushra-task5-alertcard`.

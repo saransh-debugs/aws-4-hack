@@ -101,8 +101,8 @@ flowchart LR
 | 5   | AlertCard, countdown, approve states, connecting lines, dispatch visuals | Bushra               | M2        |
 | 6   | Normalizers (NWS, emPOWER), snapshots, scenarios                         | Tanisha              | M1        |
 | 7   | Deterministic risk engine (Turf.js)                                      | Tanisha              | M1        |
-| 8   | Agent core: Bedrock Converse tool loop                                   | Saransh              | M1        |
-| 9   | Grounding validator, template fallback, evals                            | Saransh              | M2        |
+| 8   | Agent core: Bedrock Converse tool loop                                   | All (A1 T, A3 S)     | M1        |
+| 9   | Grounding validator, template fallback, evals                            | All (A2 B, A4 D)     | M2        |
 | 10  | Core infra: DynamoDB, HTTP API + Cognito, read/simulate Lambdas          | Darsh                | M1        |
 | 11  | Step Functions human approval + SNS dispatch                             | Darsh                | M2        |
 | 12  | Scheduled real-data ingest                                               | Tanisha + Darsh      | M2        |
@@ -115,7 +115,7 @@ flowchart LR
 
 - Bushra: 2 → 5
 - Tanisha: 6 → 7 → 12
-- Saransh: 8 → 9
+- Saransh: agent coordinator (A0 stubs, A3 loop); agent slices A1–A4 split across all four, see [todo/saransh-agent.md](todo/saransh-agent.md)
 - Darsh: 10 → 11
 
 Integration comes last: 13 → 14 → 15 → 16. Handoffs and stubs are listed in [docs/HANDOFFS.md](docs/HANDOFFS.md).
