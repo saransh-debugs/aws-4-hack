@@ -387,7 +387,8 @@ export class GridRiskStack extends Stack {
     // domain shares that origin for API calls only.
     const referer = `${primaryWebOrigin.replace(/\/+$/, '')}/*`;
     const locationApiKey = new location.CfnAPIKey(this, 'LocationApiKey', {
-      keyName: `${this.stackName}-web-key`,
+      // "-web-key" is taken by a key orphaned by an earlier failed replacement; don't reuse it.
+      keyName: `${this.stackName}-web-key-v2`,
       noExpiry: true,
       restrictions: {
         allowActions: ['geo:GetMap*'],
