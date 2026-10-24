@@ -55,6 +55,7 @@ export class GridRiskStack extends Stack {
         GRIDRISK_EVENTS_TABLE: events.tableName,
         GRIDRISK_SHELTERS_TABLE: shelters.tableName,
         GRIDRISK_SNAPSHOTS_TABLE: snapshots.tableName,
+        GRIDRISK_CENTERPOINT_OUTAGES_URL: process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL ?? '',
         DRIVETEXAS_API_KEY: process.env.DRIVETEXAS_API_KEY ?? '',
         GRIDRISK_ALLOW_SYNTHETIC_UTILITY: process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY ?? 'false',
         GRIDRISK_SYNTHETIC_ZONE_ID: process.env.GRIDRISK_SYNTHETIC_ZONE_ID ?? 'zone-a',
