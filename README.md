@@ -4,7 +4,7 @@ GridRisk links separate emergency feeds (power outages, flooded roads) into a si
 risk, works out how much time is left, and proposes actions that **a human approves** before
 anything is dispatched. Built on AWS: Amazon Location, Bedrock, Step Functions and SNS.
 
-> Status: **Deployed demo**. Hosted on CloudFront (`/gridrisk/web-url` in SSM) with Cognito sign-in.
+> Status: **Deployed guarded prototype**. Hosted on CloudFront (`/gridrisk/web-url` in SSM) with Cognito sign-in.
 > Simulate → Claude (Bedrock, Sonnet 4.6) proposes a grounded alert → a human approves → Step Functions
 > dispatches via SNS. Mock mode runs the same loop fully offline.
 
@@ -37,9 +37,9 @@ engine readiness checklist are in [docs/DATA.md](docs/DATA.md).
 | Path              | Package            | Owner    | M0 state                                                                    |
 | ----------------- | ------------------ | -------- | --------------------------------------------------------------------------- |
 | `packages/shared` | `@gridrisk/shared` | everyone | **Real** zod contracts + Houston fixtures                                   |
-| `packages/engine` | `@gridrisk/engine` | Tanisha  | Deterministic engine, provider adapters, snapshots, and ingest              |
+| `packages/engine` | `@gridrisk/engine` | Tanisha  | Deterministic engine, provider adapters, snapshots, ingest, health, and versioned geography |
 | `packages/agent`  | `@gridrisk/agent`  | all four | `runAgent` stub + **real** template fallback                                |
-| `apps/web`        | `@gridrisk/web`    | Bushra   | Dark shell + event feed; map and alert UI remain TODO                       |
+| `apps/web`        | `@gridrisk/web`    | Bushra   | Live event/map/alert dashboard with freshness warnings and guarded actions  |
 | `infra`           | `@gridrisk/infra`  | Darsh    | Deployable API, approval workflow, Location resources, and scheduled ingest |
 
 Packages export TypeScript source directly (`"exports": "./src/index.ts"`), so there is no build

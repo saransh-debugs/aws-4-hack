@@ -61,8 +61,12 @@ It consumes the same `DemoEvent`, `Zone`, `RoadSegment`, and `Shelter` objects u
 - `VITE_LOCATION_API_KEY` plus `VITE_LOCATION_MAP_NAME` selects an Amazon Location style;
 - without those values, the map uses the bundled offline dark style and still renders the data layers.
 
-This visual layer does not change the deterministic engine or provider data. It is a read-only view of
-the current adapter/fixture data. Real API event loading and alert controls remain separate UI work.
+In live mode, the map calls `GET /map-data` and receives a versioned registry from the geography
+table. The engine agent reads that same registry, so the map and alert calculation no longer have
+separate live geography inputs. Offline mode intentionally falls back to the Houston fixtures.
+The current registry seeding job still uses the committed Houston registry until a verified
+operational GIS/zone provider is approved; the data path is ready, but geographic coverage remains
+demo-limited.
 
 ## Provider sources
 
@@ -110,6 +114,8 @@ The deployed path is implemented in
 8. emPOWER for Zone A's ZIPs is fetched and written as a JSON payload in the snapshots table.
 9. A provider failure is logged and existing DynamoDB records are retained; the handler does not clear
    a table after a failed fetch.
+10. The versioned geography registry is written to `GeographyTable` and served through `GET /map-data`;
+    the agent loads it before correlating events.
 
 This is an idempotent upsert pattern for stable IDs, but it is not yet a full reconciliation process:
 records that disappear from a provider remain in DynamoDB unless a future cleanup/expiry policy is added.
@@ -124,6 +130,9 @@ records that disappear from a provider remain in DynamoDB unless a future cleanu
 | `AlertsTable`    | Alert records and approval/debounce state used by the agent and human-approval workflow                              | DynamoDB on-demand; managed by the cloud/agent track                      |
 | `SheltersTable`  | Partition key `id`; name, lat, lon, capacity, status                                                                 | DynamoDB on-demand, point-in-time recovery, retained                      |
 | `SnapshotsTable` | Partition key `id`; `generatedAt` and serialized `payload`                                                           | DynamoDB on-demand, point-in-time recovery, retained                      |
+| `HealthTable`    | One record per provider with status, fetch timestamp, age threshold, count, and error                 | DynamoDB on-demand, point-in-time recovery, retained                      |
+| `GeographyTable` | Versioned serialized zones, roads, and shelters used by the map and agent                           | DynamoDB on-demand, point-in-time recovery, retained                      |
+| `AuditTable`     | Approval actor, alert, action ids, and timestamp                                                   | DynamoDB on-demand, point-in-time recovery, retained                      |
 | `IngestFn`       | Node.js 22 Lambda, 512 MB, 60-second timeout                                                                         | Runs the engine ingest handler and writes events, shelters, and snapshots |
 | `IngestSchedule` | EventBridge Scheduler, every five minutes                                                                            | Invokes `IngestFn`                                                        |
 
@@ -148,7 +157,9 @@ to the Lambda where explicitly listed below.
 | `GRIDRISK_UTILITY_OUTAGES_URL`      | Generic adapter only | Reserved configurable utility feed URL; not automatically wired                             |
 | `GRIDRISK_ROAD_CLOSURES_URL`        | Generic adapter only | Reserved configurable road feed URL; not automatically wired                                |
 | `GRIDRISK_SHELTERS_URL`             | Generic adapter only | Reserved configurable shelter feed URL; not automatically wired                             |
-| `GRIDRISK_SNAPSHOT_MAX_AGE_MINUTES` | Configuration/docs   | Intended freshness threshold; current Lambda does not emit an alert from it                 |
+| `GRIDRISK_SNAPSHOT_MAX_AGE_MINUTES` | Ingest + health API  | Maximum provider age before the health API reports `stale`                                 |
+| `GRIDRISK_GEOGRAPHY_VERSION`       | CDK + ingest         | Version label for the operational geography registry                                        |
+| `GRIDRISK_DEMO_MODE`               | CDK + simulate       | Must be `true` to allow scenario mutation; default `false`                                   |
 
 Never commit API keys or credentials. Put deployment secrets in the approved runtime secret/configuration
 store rather than `.env` in Git.
@@ -200,9 +211,8 @@ Implemented reusable checks:
 - Zod schemas reject invalid event coordinates, event types, severity values, shelter status, and malformed
   zone/road geometry.
 
-Current limitation: these checks are library functions covered by tests, not an end-to-end monitoring and
-alerting pipeline. The Lambda currently logs provider failures but does not persist per-source health,
-emit CloudWatch alarms, quarantine bad records, detect cross-provider conflicts, or delete stale records.
+Current limitation: the health records and API warnings are now end-to-end, but there are still no
+CloudWatch alarms, quarantined-record workflow, cross-provider conflict rules, or operational paging.
 Those are required before live emergency decision-making.
 
 The deployed path now persists provider health at `/health`, displays non-healthy sources in the web
@@ -241,8 +251,8 @@ read current data but cannot approve requests.
 - NWS and emPOWER adapters plus committed offline snapshots are available.
 - CenterPoint is the configured no-key utility-provider path, with explicit synthetic fallback.
 - DriveTexas and FEMA adapters exist and are tested; DriveTexas remains optional because access requires a key.
-- Multi-zone fixture mappings, deterministic correlation, isolation calculation, shelter selection, and
-  assumption-derived countdown are implemented.
+- Versioned geography, deterministic correlation, isolation calculation, shelter selection, and
+  assumption-range countdown are implemented through the same map/agent data path.
 - CDK provisions scheduled Lambda ingestion and persistent event, shelter, and snapshot tables.
 - Full repository verification passes with `npm run verify`.
 
@@ -252,19 +262,21 @@ The next contributor or deployment owner still needs to:
 
 1. Deploy the stack in an AWS account and verify the CenterPoint endpoint, Cloudflare behavior, response
    schema, coordinate fields, and outage status fields from the Lambda runtime.
-2. Decide whether to obtain live TranStar access or a DriveTexas key. Public TranStar samples are not live
-   operational data.
+2. Obtain and validate a dependable road-closure provider. Until then, `/health` deliberately reports
+   the road feed unavailable and the system must be treated as outage-only.
 3. Add provider-specific schema drift handling, coordinate validation, deduplication, and cross-provider
    conflict rules for CenterPoint/road/shelter records.
-4. Add source-health records and CloudWatch alarms for fetch failure, stale data, empty responses, and
-   schema changes; define retention/reconciliation for records no longer returned by providers.
+4. Add CloudWatch alarms and paging for provider failure, stale data, empty responses, and schema changes;
+   define reconciliation for records no longer returned by providers.
 5. Expand the zone, road, ZIP, and shelter registry beyond the two demo zones and verify every mapping with
    Houston-area emergency-management stakeholders.
 6. Establish evidence-based backup and response-time distributions, document confidence intervals, and replace
-   the 120/75-minute assumptions only after clinical/emergency approval.
+   the planning ranges only after clinical/emergency approval.
 7. Add live shelter availability semantics. FEMA evacuation/post-impact capacity is not the same as current
    open beds, so a shelter should not be treated as available solely because a FEMA row exists.
-8. Add an integration test using a captured CenterPoint response and a deployment smoke test using read-only
+8. Connect the recorded notification, shelter, and drone requests to real agency systems if those actions are
+   to be operational rather than auditable requests.
+9. Add an integration test using a captured CenterPoint response and a deployment smoke test using read-only
    provider calls.
 
 ## Handoff checklist
