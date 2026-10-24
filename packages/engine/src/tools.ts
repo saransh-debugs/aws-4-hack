@@ -2,7 +2,7 @@
  * Engine tool functions (handoff H3). The agent calls these; the model never makes up numbers.
  * Signatures are the contract. Bodies marked TODO are M0 stubs.
  */
-import type { DemoEvent, Shelter, Zone } from '@gridrisk/shared';
+import type { DemoEvent, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
 import type { EngineConfig } from './config';
 import { booleanPointInPolygon, distance, point, pointToLineDistance } from '@turf/turf';
 import { ROADS } from '@gridrisk/shared/fixtures';
@@ -24,10 +24,14 @@ export interface IsolationResult {
  * Group outage / road_closure / 911 events by zone.
  * Weather events are context only and are not grouped.
  */
-export function correlate(events: DemoEvent[], zones: Zone[]): ZoneCorrelation[] {
+export function correlate(
+  events: DemoEvent[],
+  zones: Zone[],
+  roads: RoadSegment[] = ROADS,
+): ZoneCorrelation[] {
   return zones
     .map((zone) => {
-      const zoneRoads = ROADS.filter((road) => zone.accessRoadIds.includes(road.id));
+      const zoneRoads = roads.filter((road) => zone.accessRoadIds.includes(road.id));
       const inZone = events.filter((event) => {
         if (event.type === 'weather') return false;
         if (event.type === 'road_closure') {
@@ -59,9 +63,13 @@ export function correlate(events: DemoEvent[], zones: Zone[]): ZoneCorrelation[]
 }
 
 /** A zone is isolated when every one of its access roads is closed. */
-export function checkIsolation(zone: Zone, closureEvents: DemoEvent[]): IsolationResult {
+export function checkIsolation(
+  zone: Zone,
+  closureEvents: DemoEvent[],
+  roads: RoadSegment[] = ROADS,
+): IsolationResult {
   const closedAccessRoadIds = zone.accessRoadIds.filter((roadId) => {
-    const road = ROADS.find((candidate) => candidate.id === roadId);
+    const road = roads.find((candidate) => candidate.id === roadId);
     return closureEvents.some((event) => {
       if (event.type !== 'road_closure' || event.severity === 'low') return false;
       if (event.zoneId === zone.id && !road) return true;

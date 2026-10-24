@@ -4,3 +4,5 @@ export * from './tools';
 export * from './analyze';
 export * from './sources';
 export * from './ingest';
+export * from './dataQuality';
+export * from './freshness';

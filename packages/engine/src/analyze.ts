@@ -1,6 +1,6 @@
-import type { DemoEvent, EngineResult, Shelter, Zone } from '@gridrisk/shared';
-import { SHELTERS } from '@gridrisk/shared/fixtures';
-import { DEFAULT_CONFIG, type EngineConfig } from './config';
+import type { DemoEvent, EngineResult, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
+import { SHELTERS, ROADS } from '@gridrisk/shared/fixtures';
+import { DEFAULT_CONFIG, type EngineConfig, validateEngineConfig } from './config';
 import {
   checkIsolation,
   computeIsolationWindow,
@@ -12,6 +12,7 @@ import {
 export interface AnalyzeOptions {
   config?: EngineConfig;
   shelters?: Shelter[];
+  roads?: RoadSegment[];
 }
 
 /**
@@ -28,13 +29,15 @@ export function analyze(
 ): EngineResult[] {
   const config = options.config ?? DEFAULT_CONFIG;
   const shelters = options.shelters ?? SHELTERS;
+  const roads = options.roads ?? ROADS;
+  validateEngineConfig(config);
   const byId = new Map(events.map((e) => [e.id, e]));
 
-  return correlate(events, zones).flatMap((c) => {
+  return correlate(events, zones, roads).flatMap((c) => {
     const zone = zones.find((z) => z.id === c.zoneId);
     if (!zone) return [];
     const closures = c.closureEventIds.map((id) => byId.get(id)).filter((e) => e !== undefined);
-    const isolation = checkIsolation(zone, closures);
+    const isolation = checkIsolation(zone, closures, roads);
     return [
       {
         zoneId: zone.id,

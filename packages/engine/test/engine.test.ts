@@ -23,6 +23,9 @@ import {
 import { normalizeEmpower } from '../src/sources/empower';
 import { normalizeNwsAlerts } from '../src/sources/nws';
 import { ingestNwsEvents } from '../src/ingest/handler';
+import { assessFreshness, validateDataQuality } from '../src';
+import { normalizeOperationalEvents } from '../src/sources/operational';
+import { fetchSnapshotBundle } from '../src/sources/refresh';
 
 describe('buildScenario (H2)', () => {
   it('calm returns only calm events', () => {
@@ -173,6 +176,48 @@ describe('source normalizers and ingest', () => {
     expect(result).toEqual({ count: 1 });
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ TableName: 'events', Item: { id: { S: 'evt-outage-a' } } });
+  });
+
+  it('normalizes operational events and catches data-quality failures', () => {
+    const event = ESCALATION_EVENTS[0]!;
+    expect(normalizeOperationalEvents([{ ...event, type: undefined }], 'outage')[0]).toMatchObject({
+      id: event.id,
+      type: 'outage',
+    });
+    const issues = validateDataQuality(
+      [event, { ...event, description: 'conflicting duplicate' }],
+      ZONES,
+      [],
+      SHELTERS,
+      { now: new Date('2026-10-24T14:00:00.000Z'), maxEventAgeMinutes: 60 },
+    );
+    expect(issues.filter((issue) => issue.code === 'duplicate_id')).toHaveLength(1);
+    expect(issues.filter((issue) => issue.code === 'stale_event')).toHaveLength(2);
+    expect(issues.filter((issue) => issue.code === 'missing_road')).toHaveLength(2);
+  });
+
+  it('reports snapshot freshness', () => {
+    const status = assessFreshness(
+      'nws',
+      '2026-10-23T14:00:00.000Z',
+      60,
+      new Date('2026-10-23T15:01:00.000Z'),
+    );
+    expect(status.stale).toBe(true);
+    expect(status.ageMinutes).toBe(61);
+  });
+
+  it('builds one consistent snapshot bundle for scheduled refreshes', async () => {
+    const bundle = await fetchSnapshotBundle(['77002'], {
+      fetchNws: async () => [],
+      fetchEmpower: async () => [{ zip: '77002', electricityDependentCount: 7 }],
+      now: () => new Date('2026-10-23T14:00:00.000Z'),
+    });
+    expect(bundle).toEqual({
+      generatedAt: '2026-10-23T14:00:00.000Z',
+      nws: [],
+      empower: [{ zip: '77002', electricityDependentCount: 7 }],
+    });
   });
 });
 
