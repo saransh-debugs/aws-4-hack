@@ -92,6 +92,14 @@ export const ShelterSchema = z.object({
 });
 export type Shelter = z.infer<typeof ShelterSchema>;
 
+export const MapDataSchema = z.object({
+  version: z.string().min(1),
+  zones: z.array(ZoneSchema),
+  roads: z.array(RoadSegmentSchema),
+  shelters: z.array(ShelterSchema),
+});
+export type MapData = z.infer<typeof MapDataSchema>;
+
 // ---------- Engine output ----------
 
 export const EngineResultSchema = z.object({
@@ -187,6 +195,9 @@ export type SimulateResponse = z.infer<typeof SimulateResponseSchema>;
 export const GetHealthResponseSchema = z.object({ health: z.array(SourceHealthSchema) });
 export type GetHealthResponse = z.infer<typeof GetHealthResponseSchema>;
 
+export const GetMapDataResponseSchema = MapDataSchema;
+export type GetMapDataResponse = z.infer<typeof GetMapDataResponseSchema>;
+
 export const ApiErrorSchema = z.object({
   error: z.object({
     code: z.enum([
@@ -209,6 +220,7 @@ export const API_ROUTES = {
   simulate: { method: 'POST', path: '/simulate/{scenario}' },
   reset: { method: 'POST', path: '/simulate/reset' },
   getHealth: { method: 'GET', path: '/health' },
+  getMapData: { method: 'GET', path: '/map-data' },
 } as const;
 export type ApiRouteName = keyof typeof API_ROUTES;
 

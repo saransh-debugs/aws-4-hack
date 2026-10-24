@@ -1,5 +1,6 @@
 import type { DemoEvent } from '@gridrisk/shared';
-import type { Shelter, SourceHealth, SourceHealthStatus } from '@gridrisk/shared';
+import type { MapData, Shelter, SourceHealth, SourceHealthStatus } from '@gridrisk/shared';
+import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 import {
   fetchCenterPointOutages,
@@ -84,6 +85,15 @@ function healthItemFor(health: SourceHealth): Record<string, { S: string }> {
   };
 }
 
+function geographyItemFor(mapData: MapData): Record<string, { S: string }> {
+  return {
+    id: { S: 'current' },
+    version: { S: mapData.version },
+    payload: { S: JSON.stringify(mapData) },
+    updatedAt: { S: new Date().toISOString() },
+  };
+}
+
 async function writeHealth(
   source: string,
   status: SourceHealthStatus,
@@ -158,7 +168,19 @@ export async function handler(): Promise<{ count: number }> {
   const sheltersTableName = process.env.GRIDRISK_SHELTERS_TABLE;
   const snapshotsTableName = process.env.GRIDRISK_SNAPSHOTS_TABLE;
   const healthTableName = process.env.GRIDRISK_HEALTH_TABLE;
+  const geographyTableName = process.env.GRIDRISK_GEOGRAPHY_TABLE;
   if (!eventsTableName) throw new Error('GRIDRISK_EVENTS_TABLE is required');
+  if (geographyTableName) {
+    const mapData: MapData = {
+      version: process.env.GRIDRISK_GEOGRAPHY_VERSION ?? 'fixture-2026-10-23',
+      zones: ZONES,
+      roads: ROADS,
+      shelters: SHELTERS,
+    };
+    await dynamo.send(
+      new PutItemCommand({ TableName: geographyTableName, Item: geographyItemFor(mapData) }),
+    );
+  }
   const events: DemoEvent[] = [];
   try {
     const nwsEvents = await fetchNwsAlerts();

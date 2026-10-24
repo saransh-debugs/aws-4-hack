@@ -2,6 +2,7 @@ import type {
   AlertCardData,
   ApiError,
   DemoEvent,
+  MapData,
   ScenarioName,
   SourceHealth,
 } from '@gridrisk/shared';
@@ -18,6 +19,7 @@ export interface DataAdapter {
   getAlerts(): Promise<AlertCardData[]>;
   /** Provider freshness and error status. Optional for backwards-compatible adapters. */
   getHealth?(): Promise<SourceHealth[]>;
+  getMapData?(): Promise<MapData>;
   /** Approve a subset of an alert's proposed actions. Resolves to the updated alert. */
   approve(alertId: string, actionIds: string[]): Promise<AlertCardData>;
   /** Inject a scenario's events. Resolves to the full current event list. */

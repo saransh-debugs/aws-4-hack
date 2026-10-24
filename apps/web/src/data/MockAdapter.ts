@@ -1,12 +1,14 @@
 import type {
   AlertCardData,
   DemoEvent,
+  MapData,
   ScenarioName,
   Shelter,
   SourceHealth,
   Zone,
 } from '@gridrisk/shared';
 import { SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
+import { ROADS } from '@gridrisk/shared/fixtures';
 import { analyze, buildScenario } from '@gridrisk/engine';
 // Subpath on purpose: the package root pulls in the Bedrock SDK, which must not reach the browser.
 import { buildTemplateAlert } from '@gridrisk/agent/template';
@@ -56,6 +58,10 @@ export class MockAdapter implements DataAdapter {
         maxAgeMinutes: 60,
       },
     ];
+  }
+
+  async getMapData(): Promise<MapData> {
+    return { version: 'fixture-2026-10-23', zones: structuredClone(this.zones), roads: structuredClone(ROADS), shelters: structuredClone(this.shelters) };
   }
 
   async approve(alertId: string, actionIds: string[]): Promise<AlertCardData> {

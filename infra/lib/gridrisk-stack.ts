@@ -93,6 +93,13 @@ export class GridRiskStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
+    const geographyTable = new dynamodb.Table(this, 'GeographyTable', {
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+
     const alertsTable = new dynamodb.Table(this, 'AlertsTable', {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -159,11 +166,15 @@ export class GridRiskStack extends Stack {
     const getEventsFn = mkFn('GetEventsFn', 'getEvents.ts');
     const getAlertsFn = mkFn('GetAlertsFn', 'getAlerts.ts');
     const getHealthFn = mkFn('GetHealthFn', 'getHealth.ts', { HEALTH_TABLE: healthTable.tableName });
+    const getMapDataFn = mkFn('GetMapDataFn', 'getMapData.ts', {
+      GEOGRAPHY_TABLE: geographyTable.tableName,
+    });
     const simulateFn = mkFn('SimulateFn', 'simulate.ts');
 
     eventsTable.grantReadData(getEventsFn);
     alertsTable.grantReadData(getAlertsFn);
     healthTable.grantReadData(getHealthFn);
+    geographyTable.grantReadData(getMapDataFn);
     // simulate rewrites events and clears alerts + debounce locks.
     eventsTable.grantReadWriteData(simulateFn);
     alertsTable.grantReadWriteData(simulateFn);
@@ -211,6 +222,10 @@ export class GridRiskStack extends Stack {
     runAgentCfn.timeout = 30;
     runAgentCfn.memorySize = 512;
     eventsTable.grantReadData(runAgentFn);
+    geographyTable.grantReadData(runAgentFn);
+    runAgentFn.addEnvironment('GEOGRAPHY_TABLE', geographyTable.tableName);
+    runAgentFn.addEnvironment('SNAPSHOTS_TABLE', snapshotsTable.tableName);
+    snapshotsTable.grantReadData(runAgentFn);
 
     const saveAlertFn = mkFn('SaveAlertFn', 'sfn/saveAlert.ts');
     alertsTable.grantWriteData(saveAlertFn);
@@ -356,6 +371,11 @@ export class GridRiskStack extends Stack {
       path: '/health',
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration('GetHealthIntegration', getHealthFn),
+    });
+    httpApi.addRoutes({
+      path: '/map-data',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration('GetMapDataIntegration', getMapDataFn),
     });
     httpApi.addRoutes({
       path: '/alerts/{id}/approve',
@@ -518,6 +538,9 @@ function handler(event) {
         GRIDRISK_SHELTERS_TABLE: sheltersTable.tableName,
         GRIDRISK_SNAPSHOTS_TABLE: snapshotsTable.tableName,
         GRIDRISK_HEALTH_TABLE: healthTable.tableName,
+        GRIDRISK_GEOGRAPHY_TABLE: geographyTable.tableName,
+        GRIDRISK_GEOGRAPHY_VERSION:
+          process.env.GRIDRISK_GEOGRAPHY_VERSION ?? 'fixture-2026-10-23',
         GRIDRISK_CENTERPOINT_OUTAGES_URL: process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL ?? '',
         DRIVETEXAS_API_KEY: process.env.DRIVETEXAS_API_KEY ?? '',
         GRIDRISK_ALLOW_SYNTHETIC_UTILITY: process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY ?? 'false',
@@ -528,6 +551,7 @@ function handler(event) {
     eventsTable.grantReadWriteData(ingestFn);
     sheltersTable.grantWriteData(ingestFn);
     snapshotsTable.grantWriteData(ingestFn);
+    geographyTable.grantReadWriteData(ingestFn);
 
     const schedulerRole = new iam.Role(this, 'IngestSchedulerRole', {
       assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),

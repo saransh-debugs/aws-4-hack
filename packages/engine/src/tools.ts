@@ -86,8 +86,13 @@ export function checkIsolation(
 }
 
 /** Electricity-dependent Medicare beneficiaries in the zone (HHS emPOWER, by ZIP). */
-export function dependentPatients(zone: Zone): number {
-  const counts = empowerSnapshot as Array<{ zip: string; electricityDependentCount: number }>;
+export interface PatientCount {
+  zip: string;
+  electricityDependentCount: number;
+}
+
+export function dependentPatients(zone: Zone, patientCounts?: PatientCount[]): number {
+  const counts = patientCounts ?? (empowerSnapshot as PatientCount[]);
   const total = counts
     .filter((row) => zone.zips.includes(row.zip))
     .reduce((sum, row) => sum + row.electricityDependentCount, 0);

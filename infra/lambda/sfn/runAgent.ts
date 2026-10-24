@@ -10,11 +10,11 @@
  * Output shape consumed by the state machine (unchanged):
  *   { zoneId, raised: boolean, alert?: AlertCardData }
  */
-import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
-import type { AlertCardData, DemoEvent } from '@gridrisk/shared';
+import { MapDataSchema, type AlertCardData, type DemoEvent } from '@gridrisk/shared';
 import { runAgent, type AgentLogger } from '@gridrisk/agent';
-import { ddb, EVENTS_TABLE } from '../shared/ddb';
+import { ddb, EVENTS_TABLE, GEOGRAPHY_TABLE, requireEnv } from '../shared/ddb';
 
 interface Input {
   zoneId: string;
@@ -40,10 +40,30 @@ const logger: AgentLogger = {
 export async function handler(input: Input): Promise<Output> {
   const res = await ddb.send(new ScanCommand({ TableName: EVENTS_TABLE() }));
   const events = (res.Items ?? []) as DemoEvent[];
+  const geography = await ddb.send(new ScanCommand({ TableName: GEOGRAPHY_TABLE() }));
+  const payload = (geography.Items ?? [])[0]?.payload;
+  const mapData = MapDataSchema.parse(payload ? JSON.parse(String(payload)) : undefined);
+  const snapshot = await ddb.send(
+    new GetCommand({ TableName: requireEnv('SNAPSHOTS_TABLE'), Key: { id: 'empower' } }),
+  );
+  const patientCounts = snapshot.Item?.payload
+    ? (JSON.parse(String(snapshot.Item.payload)) as Array<{
+        zip: string;
+        electricityDependentCount: number;
+      }>)
+    : undefined;
 
   const alert = await runAgent(
     { zoneId: input.zoneId, events },
-    { bedrockClient, modelId: process.env.BEDROCK_MODEL_ID, logger },
+    {
+      bedrockClient,
+      modelId: process.env.BEDROCK_MODEL_ID,
+      logger,
+      zones: mapData.zones,
+      roads: mapData.roads,
+      shelters: mapData.shelters,
+      patientCounts,
+    },
   );
   if (!alert) return { zoneId: input.zoneId, raised: false };
 

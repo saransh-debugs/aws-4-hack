@@ -14,6 +14,7 @@ import {
   buildPath,
   GetAlertsResponseSchema,
   GetHealthResponseSchema,
+  GetMapDataResponseSchema,
   GetEventsResponseSchema,
   SimulateResponseSchema,
   type AlertCardData,
@@ -22,6 +23,7 @@ import {
   type DemoEvent,
   type ScenarioName,
   type SourceHealth,
+  type MapData,
 } from '@gridrisk/shared';
 import type { DataAdapter } from './DataAdapter';
 import { DataAdapterError, type DataAdapterErrorCode } from './errors';
@@ -63,6 +65,10 @@ export class LiveAdapter implements DataAdapter {
 
   async getHealth(): Promise<SourceHealth[]> {
     return (await this.request('getHealth', GetHealthResponseSchema)).health;
+  }
+
+  async getMapData(): Promise<MapData> {
+    return this.request('getMapData', GetMapDataResponseSchema);
   }
 
   async approve(alertId: string, actionIds: string[]): Promise<AlertCardData> {

@@ -13,10 +13,10 @@
  * NOTE: the BedrockRuntimeClient import is dynamic so that `./template`'s import graph stays
  * SDK-free (the web app bundles the template via `@gridrisk/agent/template`).
  */
-import type { AlertCardData, DemoEvent, Shelter, Zone } from '@gridrisk/shared';
+import type { AlertCardData, DemoEvent, RoadSegment, Shelter, Zone } from '@gridrisk/shared';
 import { AlertCardDataSchema } from '@gridrisk/shared';
 import { SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
-import { analyze, DEFAULT_CONFIG, type EngineConfig } from '@gridrisk/engine';
+import { analyze, DEFAULT_CONFIG, type EngineConfig, type PatientCount } from '@gridrisk/engine';
 import { assembleAlert } from './assemble';
 import { AgentError, BEDROCK_DEFAULTS, runBedrockLoop, type ConverseClient } from './bedrock';
 import { buildTemplateAlert } from './template';
@@ -35,6 +35,8 @@ export interface AgentLogger {
 export interface RunAgentDeps {
   zones?: Zone[];
   shelters?: Shelter[];
+  roads?: RoadSegment[];
+  patientCounts?: PatientCount[];
   now?: () => Date;
   config?: EngineConfig;
   bedrockClient?: ConverseClient;
@@ -66,7 +68,12 @@ export async function runAgent(
   const zone = zones.find((z) => z.id === input.zoneId);
   if (!zone) return null;
 
-  const result = analyze(input.events, zones, { config, shelters }).find(
+  const result = analyze(input.events, zones, {
+    config,
+    shelters,
+    roads: deps.roads,
+    patientCounts: deps.patientCounts,
+  }).find(
     (r) => r.zoneId === zone.id,
   );
   if (!result?.isolated) return null;

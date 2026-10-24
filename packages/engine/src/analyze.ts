@@ -7,12 +7,14 @@ import {
   correlate,
   dependentPatients,
   findShelters,
+  type PatientCount,
 } from './tools';
 
 export interface AnalyzeOptions {
   config?: EngineConfig;
   shelters?: Shelter[];
   roads?: RoadSegment[];
+  patientCounts?: PatientCount[];
 }
 
 /**
@@ -46,7 +48,7 @@ export function analyze(
         outageEventIds: c.outageEventIds,
         closureEventIds: c.closureEventIds,
         emergencyEventIds: c.emergencyEventIds,
-        dependentPatients: dependentPatients(zone),
+        dependentPatients: dependentPatients(zone, options.patientCounts),
         avgBackupMinutes: config.avgBackupMinutes,
         estimatedResponseMinutes: config.estimatedResponseMinutes,
         isolationWindowMinutes: computeIsolationWindow(config),

@@ -7,13 +7,16 @@ export function useRefresh(): () => Promise<void> {
   const adapter = useAdapter();
   const setSnapshot = useGridStore((s) => s.setSnapshot);
   const setHealth = useGridStore((s) => s.setHealth);
+  const setMapData = useGridStore((s) => s.setMapData);
   return useCallback(async () => {
-    const [events, alerts, health] = await Promise.all([
+    const [events, alerts, health, mapData] = await Promise.all([
       adapter.getEvents(),
       adapter.getAlerts(),
       adapter.getHealth?.() ?? Promise.resolve([]),
+      adapter.getMapData?.() ?? Promise.resolve(null),
     ]);
     setSnapshot({ events, alerts });
     setHealth(health);
-  }, [adapter, setHealth, setSnapshot]);
+    if (mapData) setMapData(mapData);
+  }, [adapter, setHealth, setMapData, setSnapshot]);
 }

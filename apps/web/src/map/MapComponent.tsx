@@ -4,7 +4,7 @@ import Map, { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './workerSetup';
 import { analyze } from '@gridrisk/engine';
-import { HOUSTON_CENTER, ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
+import { HOUSTON_CENTER } from '@gridrisk/shared/fixtures';
 import { useGridStore } from '../store';
 import {
   closedRoadsToGeoJSON,
@@ -20,9 +20,6 @@ const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** The drone's launch point: the first shelter, or the Houston center as a fallback. */
-const DRONE_BASE = SHELTERS[0] ?? HOUSTON_CENTER;
-
 /**
  * Houston map: events, the outage zone (red), closed road (yellow), shelters, and the alert
  * overlays — lines between related events, a drone path and an activated (green) shelter after
@@ -31,6 +28,9 @@ const DRONE_BASE = SHELTERS[0] ?? HOUSTON_CENTER;
 export default function MapComponent() {
   const events = useGridStore((s) => s.events);
   const alerts = useGridStore((s) => s.alerts);
+  const zones = useGridStore((s) => s.zones);
+  const roads = useGridStore((s) => s.roads);
+  const shelterRegistry = useGridStore((s) => s.shelters);
   const selectedEventId = useGridStore((s) => s.selectedEventId);
   const selectEvent = useGridStore((s) => s.selectEvent);
   const mapRef = useRef<MapRef>(null);
@@ -50,8 +50,8 @@ export default function MapComponent() {
         .filter((p) => p.type === 'activate_shelter')
         .map((p) => String(p.params.shelterId ?? '')),
     );
-    return withActivatedShelters(SHELTERS, activatedIds);
-  }, [dispatched]);
+    return withActivatedShelters(shelterRegistry, activatedIds);
+  }, [dispatched, shelterRegistry]);
 
   // Zones with an approved drone dispatch → draw a flight path from the base.
   const dronePaths = useMemo(() => {
@@ -63,26 +63,26 @@ export default function MapComponent() {
     const features = zoneIds.flatMap(
       (zoneId) =>
         dronePathToGeoJSON(
-          DRONE_BASE,
-          ZONES.find((z) => z.id === zoneId),
+          shelterRegistry[0] ?? HOUSTON_CENTER,
+          zones.find((z) => z.id === zoneId),
         ).features,
     );
     return { type: 'FeatureCollection' as const, features };
-  }, [dispatched]);
+  }, [dispatched, shelterRegistry, zones]);
 
   const geo = useMemo(() => {
-    const closedRoadIds = analyze(events, ZONES, { shelters: SHELTERS }).flatMap(
+    const closedRoadIds = analyze(events, zones, { shelters, roads }).flatMap(
       (r) => r.closedAccessRoadIds,
     );
     const relatedFeatures = alerts.flatMap(
       (a) => relatedEventLinesToGeoJSON(a.relatedEventIds, events).features,
     );
     return {
-      zones: outageZonesToGeoJSON(ZONES, events),
-      roads: closedRoadsToGeoJSON(ROADS, closedRoadIds),
+      zones: outageZonesToGeoJSON(zones, events),
+      roads: closedRoadsToGeoJSON(roads, closedRoadIds),
       related: { type: 'FeatureCollection' as const, features: relatedFeatures },
     };
-  }, [events, alerts]);
+  }, [events, alerts, roads, shelters, zones]);
 
   useEffect(() => {
     const event = useGridStore.getState().events.find((e) => e.id === selectedEventId);
