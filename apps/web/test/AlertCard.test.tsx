@@ -34,9 +34,9 @@ function renderCard(alert: AlertCardData, adapter: DataAdapter, onApproved = vi.
 describe('dispatchToastMessage', () => {
   it('adapts to the dispatched action types', () => {
     expect(dispatchToastMessage(['send_alert', 'dispatch_drone'])).toBe(
-      'SNS Alert Sent. Recon Drone Deployed.',
+      'Notification Published. Drone Mission Request Created.',
     );
-    expect(dispatchToastMessage(['activate_shelter'])).toBe('Shelter Activated.');
+    expect(dispatchToastMessage(['activate_shelter'])).toBe('Shelter Activation Recorded.');
     expect(dispatchToastMessage([])).toBe('Actions dispatched.');
   });
 });
@@ -78,7 +78,7 @@ describe('AlertCard', () => {
 
     await user.click(screen.getByRole('button', { name: /approve/i }));
     // Both actions checked → shelter + drone message (appears in the live region and the toast).
-    expect((await screen.findAllByText(/Recon Drone Deployed\./)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Drone Mission Request Created\./)).length).toBeGreaterThan(0);
   });
 
   it('disables Approve when no action is checked', async () => {

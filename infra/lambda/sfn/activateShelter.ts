@@ -1,7 +1,7 @@
 /**
- * Step Functions Dispatch branch: set the candidate shelter to 'active'.
- * Writes a shelter-status record into the alerts table (keyed shelter#<id>) so the
- * demo has a durable record without a separate table.
+ * Step Functions branch: record a shelter activation request.
+ * This does not change a shelter-management system; it creates an auditable request
+ * until a real shelter provider integration is configured.
  */
 import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import type { AlertCardData } from '@gridrisk/shared';
@@ -30,7 +30,7 @@ export async function handler(input: Input): Promise<{ activatedShelterIds: stri
           id: `shelter#${shelterId}`,
           kind: 'shelter_status',
           shelterId,
-          status: 'active',
+          status: 'activation_requested',
           activatedAt: new Date().toISOString(),
           alertId: input.alertId,
         },

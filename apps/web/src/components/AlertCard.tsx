@@ -30,10 +30,10 @@ type ApproveState = 'idle' | 'loading' | 'dispatched' | 'error';
 /** A short, human toast that adapts to the actions that were actually dispatched. */
 export function dispatchToastMessage(types: ActionType[]): string {
   const parts: string[] = [];
-  if (types.includes('send_alert')) parts.push('SNS Alert Sent.');
-  if (types.includes('dispatch_drone')) parts.push('Recon Drone Deployed.');
-  if (types.includes('activate_shelter')) parts.push('Shelter Activated.');
-  return parts.length > 0 ? parts.join(' ') : 'Actions dispatched.';
+  if (types.includes('send_alert')) parts.push('Notification Published.');
+  if (types.includes('dispatch_drone')) parts.push('Drone Mission Request Created.');
+  if (types.includes('activate_shelter')) parts.push('Shelter Activation Recorded.');
+  return parts.length > 0 ? parts.join(' ') : 'Requests recorded.';
 }
 
 export function AlertCard({ alert, onApproved, clock }: AlertCardProps) {

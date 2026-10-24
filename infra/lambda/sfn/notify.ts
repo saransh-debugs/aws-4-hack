@@ -1,6 +1,6 @@
 /**
  * Step Functions Dispatch branch: SNS publish.
- * Publishes the approved alert to the dispatch SNS topic (email/SMS subscription).
+ * Publishes the approved notification request to the dispatch SNS topic (email/SMS subscription).
  */
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
@@ -28,7 +28,7 @@ export async function handler(input: Input): Promise<{ published: boolean }> {
     ...alert.points.map((p) => `- ${p}`),
     '',
     `Isolation window (assumed): ${alert.isolationWindowMinutes} min`,
-    `Approved actions: ${alert.proposedActions.map((a) => a.label).join('; ')}`,
+    `Approved requests: ${alert.proposedActions.map((a) => a.label).join('; ')}`,
   ];
 
   await sns.send(

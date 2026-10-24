@@ -29,7 +29,7 @@ export function buildProposedActions(types: ActionType[], ctx: ActionContext): P
               {
                 id: `act-${shelter.id}`,
                 type,
-                label: `Activate ${shelter.name} (Capacity: ${shelter.capacity})`,
+                label: `Record shelter activation request: ${shelter.name} (Capacity: ${shelter.capacity})`,
                 params: { shelterId: shelter.id },
               },
             ]
@@ -39,7 +39,7 @@ export function buildProposedActions(types: ActionType[], ctx: ActionContext): P
           {
             id: `act-drone-${zone.id}`,
             type,
-            label: `Dispatch Aerial Recon Drone to ${zone.name}`,
+            label: `Create drone mission request for ${zone.name}`,
             params: { zoneId: zone.id },
           },
         ];
@@ -48,7 +48,7 @@ export function buildProposedActions(types: ActionType[], ctx: ActionContext): P
           {
             id: `act-alert-${zone.id}`,
             type,
-            label: `Send public alert to ${zone.name}`,
+            label: `Create notification for ${zone.name}`,
             params: { zoneId: zone.id },
           },
         ];

@@ -43,7 +43,7 @@ export function buildTemplateAlert(result: EngineResult, options: TemplateOption
     `Deterministic engine calculates ${result.dependentPatients} electricity-dependent patients here, with an average backup of just ${formatDuration(result.avgBackupMinutes)}.`,
   );
 
-  // Fixed fallback actions: a shelter (when one exists) and a recon drone.
+  // Fixed fallback requests: the workflow records a shelter request and drone mission request.
   const proposedActions = buildProposedActions(['activate_shelter', 'dispatch_drone'], {
     zone,
     shelters,

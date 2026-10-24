@@ -213,6 +213,14 @@ with `403` unless the same backend flag is enabled. This protects the shared eve
 tables from being replaced by a demo scenario. Use a separate demo stack/account when enabling
 the flag; do not enable it for live operations.
 
+### Action semantics
+
+The approval workflow is intentionally honest about its current integration boundary. The
+notification action publishes to the configured SNS topic; the shelter action records an
+`activation_requested` record; and the drone action records a `requested` mission. These are
+auditable requests, not direct control of a shelter, public-alert, or drone system. A real provider
+integration must be added before presenting them as completed field actions.
+
 ### Complete for the grounded prototype
 
 - No 911 data is required or modeled.

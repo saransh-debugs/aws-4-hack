@@ -182,13 +182,13 @@ export const SAMPLE_ALERT: AlertCardData = {
     {
       id: 'act-shelter-b',
       type: 'activate_shelter',
-      label: 'Activate Shelter B (Capacity: 200)',
+      label: 'Record shelter activation request: Shelter B (Capacity: 200)',
       params: { shelterId: SHELTER_B.id },
     },
     {
       id: 'act-drone-zone-a',
       type: 'dispatch_drone',
-      label: 'Dispatch Aerial Recon Drone to Zone A',
+      label: 'Create drone mission request for Zone A',
       params: { zoneId: ZONE_A.id },
     },
   ],

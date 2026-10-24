@@ -1,5 +1,5 @@
 /**
- * Step Functions Dispatch branch: write a drone mission record.
+ * Step Functions branch: create a drone mission request record.
  */
 import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import type { AlertCardData } from '@gridrisk/shared';
@@ -29,7 +29,7 @@ export async function handler(input: Input): Promise<{ missionIds: string[] }> {
           kind: 'drone_mission',
           alertId: input.alertId,
           zoneId: alert.zoneId,
-          status: 'launched',
+          status: 'requested',
           launchedAt: new Date().toISOString(),
           params: action.params,
         },
