@@ -155,6 +155,15 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
   - Tune the prompt against real Claude once the AWS account is set up (with Darsh).
 - Tests (`aws-sdk-client-mock`): scripted tool sequence → submission and trace; turn cap; unknown
   tool keeps going; end without submitting throws; abort throws.
+- Status:
+  - [x] `prompt.ts`, `bedrock.ts` and the loop tests (#4, re-landed in #7)
+  - [x] `scripts/stub-model.ts` with `hallucinate`
+  - [x] `test/evals.test.ts` with the stub model (calm, partial, escalation and reopened)
+  - [ ] Swap the hand-built partial and reopened events in the evals for
+        `buildScenario('partial' | 'reopened')` once Tanisha's engine exports them
+  - [ ] Real Bedrock eval run (`RUN_BEDROCK=1 BEDROCK_MODEL_ID=… npm test -w @gridrisk/agent`).
+        **Blocked:** needs AWS credentials and Bedrock model access in us-east-1 (with Darsh)
+  - [ ] Tune the prompt against real Claude (after the run above)
 
 ### A4 – Orchestration, fallback and Lambda (Darsh) · M2 · Task 9 + agent side of Task 14
 
@@ -226,6 +235,22 @@ that directory.
   - Guidance: mock mode, in CI: calm → Simulate → alert appears → check actions → Approve →
     "DISPATCHED" → Reset. Use roles and labels for selectors, not CSS classes.
   - Demo: the e2e job is green in CI.
+  - Status:
+    - [x] Playwright set up, `npm run test:e2e`, `e2e` CI job, calm smoke test (#15)
+    - [x] Full loop written, gated on the repo variable `E2E_UI_READY=1`
+    - [ ] Turn the loop on: once Bushra's AlertCard (Task 5) is on main, run
+          `E2E_UI_READY=1 npm run test:e2e` locally, then set the repo variable
+    - [ ] Un-`fixme` the Shift+R test once Task 16 lands
+
+## Coordinator (Saransh)
+
+- [x] A0 stubs merged, and all four slices can start (#3)
+- [ ] Review Tanisha's A1 PR (`tools.ts`: one zod schema per tool)
+- [ ] Run the evals after each of A1, A2 and A4 merges. A2 adds the real `checkGrounding`, and
+      the escalation eval must still pass with the stub model
+- [ ] Once A4 merges, update H5 and H9 in `docs/HANDOFFS.md`
+- [ ] Walkthrough: `npm run agent:local -- escalation --stub` (needs A4's script), then each
+      person explains their slice in about 5 minutes
 
 ## Outbound handoffs
 
