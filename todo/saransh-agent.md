@@ -18,7 +18,7 @@ everyone can walk a judge through it.
 runAgent({ zoneId, events })                                   A4 Darsh
   └─ engine.analyze → not isolated? return null (model never called)
   └─ no BEDROCK_MODEL_ID? return buildTemplateAlert(...)
-  └─ runBedrockLoop (8 turns, 8 s timeout)                     A3 Saransh
+  └─ runBedrockLoop (8 turns, 20 s timeout)                    A3 Saransh
        └─ Claude calls tools → executeTool → engine functions  A1 Tanisha
        └─ Claude calls submit_alert { title, points, actionTypes }
   └─ assembleAlert: every id and number from the EngineResult  A2 Bushra
@@ -155,6 +155,20 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
   - Tune the prompt against real Claude once the AWS account is set up (with Darsh).
 - Tests (`aws-sdk-client-mock`): scripted tool sequence → submission and trace; turn cap; unknown
   tool keeps going; end without submitting throws; abort throws.
+- Status:
+  - [x] `prompt.ts`, `bedrock.ts` and the loop tests (#4, re-landed in #7)
+  - [x] `scripts/stub-model.ts` with `hallucinate`
+  - [x] `test/evals.test.ts` with the stub model (calm, partial, escalation and reopened)
+  - [ ] Swap the hand-built partial and reopened events in the evals for
+        `buildScenario('partial' | 'reopened')` once Tanisha's engine exports them
+  - [x] Real Bedrock eval run (`RUN_BEDROCK=1 BEDROCK_MODEL_ID=… npm test -w @gridrisk/agent`):
+        all 4 pass on `us.anthropic.claude-sonnet-4-6` (~9.5 s), `us.anthropic.claude-haiku-4-5-20251001-v1:0`
+        (~9 s) and `us.anthropic.claude-sonnet-5-5` (~15.5 s), workshop account, us-east-1.
+        Haiku 5.5 is blocked by the account's private marketplace
+  - [x] Prompt tuned: all six investigation tools in one parallel turn, then `submit_alert`
+        (4 turns down to 2). The loop drops `toolChoice: any` / `temperature` when a model rejects them
+  - [ ] Darsh: set `BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6` for RunAgent and scope
+        `bedrock:InvokeModel` to that inference profile plus its foundation-model ARNs
 
 ### A4 – Orchestration, fallback and Lambda (Darsh) · M2 · Task 9 + agent side of Task 14
 
@@ -163,7 +177,8 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
   - Keep the `runAgent` signature; add only the optional deps listed in the interfaces.
   - Not isolated → `null` without calling Bedrock. No model id (env `BEDROCK_MODEL_ID`) →
     template, so mock mode and CI stay offline.
-  - Wrap the loop in an 8 s timeout (`AbortController`). On any `AgentError`, a schema failure or
+  - Wrap the loop in a `BEDROCK_DEFAULTS.timeoutMs` (20 s) timeout (`AbortController`). Real
+    Claude takes 9–16 s for the 2 turns, so 8 s would always fall back to the template. On any `AgentError`, a schema failure or
     a failed `checkGrounding`: log the reason and return `buildTemplateAlert` (no `toolTrace`).
   - `handler.ts`: validate the event with zod, create one `BedrockRuntimeClient` per container,
     return `{ alert }`. Export it as `@gridrisk/agent/handler`.
@@ -226,6 +241,22 @@ that directory.
   - Guidance: mock mode, in CI: calm → Simulate → alert appears → check actions → Approve →
     "DISPATCHED" → Reset. Use roles and labels for selectors, not CSS classes.
   - Demo: the e2e job is green in CI.
+  - Status:
+    - [x] Playwright set up, `npm run test:e2e`, `e2e` CI job, calm smoke test (#15)
+    - [x] Full loop written, gated on the repo variable `E2E_UI_READY=1`
+    - [ ] Turn the loop on: once Bushra's AlertCard (Task 5) is on main, run
+          `E2E_UI_READY=1 npm run test:e2e` locally, then set the repo variable
+    - [ ] Un-`fixme` the Shift+R test once Task 16 lands
+
+## Coordinator (Saransh)
+
+- [x] A0 stubs merged, and all four slices can start (#3)
+- [ ] Review Tanisha's A1 PR (`tools.ts`: one zod schema per tool)
+- [ ] Run the evals after each of A1, A2 and A4 merges. A2 adds the real `checkGrounding`, and
+      the escalation eval must still pass with the stub model
+- [ ] Once A4 merges, update H5 and H9 in `docs/HANDOFFS.md`
+- [ ] Walkthrough: `npm run agent:local -- escalation --stub` (needs A4's script), then each
+      person explains their slice in about 5 minutes
 
 ## Outbound handoffs
 

@@ -13,6 +13,7 @@ import {
   AgentError,
   BEDROCK_DEFAULTS,
   runBedrockLoop,
+  SUBMIT_REMINDER,
   type BedrockDocument,
   type ToolContext,
 } from '../src';
@@ -180,6 +181,86 @@ describe('runBedrockLoop', () => {
       .resolvesOnce(turn({ text: 'Zone A looks isolated.' }));
 
     expect((await agentError(run())).code).toBe('no_submit');
+  });
+
+  describe('models that reject a request setting', () => {
+    const validation = (message: string) =>
+      Object.assign(new Error(message), { name: 'ValidationException' });
+    const sentInput = (n: number) => bedrock.commandCalls(ConverseCommand)[n]!.args[0].input;
+
+    it('drops toolChoice "any" and retries the same turn', async () => {
+      bedrock
+        .on(ConverseCommand)
+        .rejectsOnce(
+          validation(
+            'The model returned the following errors: tool_choice: type "tool" and "any" are not supported for this model.',
+          ),
+        )
+        .resolves(turn(use('submit_alert', SUBMISSION)));
+
+      const out = await run();
+      expect(out.turns).toBe(1);
+      expect(sentInput(0).toolConfig?.toolChoice).toEqual({ any: {} });
+      expect(sentInput(1).toolConfig?.toolChoice).toBeUndefined();
+      expect(sentInput(1).inferenceConfig?.temperature).toBe(BEDROCK_DEFAULTS.temperature);
+    });
+
+    it('drops temperature and retries', async () => {
+      bedrock
+        .on(ConverseCommand)
+        .rejectsOnce(validation('`temperature` is deprecated for this model.'))
+        .resolves(turn(use('submit_alert', SUBMISSION)));
+
+      await run();
+      expect(sentInput(1).inferenceConfig).toEqual({ maxTokens: BEDROCK_DEFAULTS.maxTokens });
+      expect(sentInput(1).toolConfig?.toolChoice).toEqual({ any: {} });
+    });
+
+    it('drops both, then remembers for later turns', async () => {
+      bedrock
+        .on(ConverseCommand)
+        .rejectsOnce(validation('tool_choice: type "any" is not supported'))
+        .rejectsOnce(validation('`temperature` is deprecated for this model.'))
+        .resolvesOnce(turn(use('check_isolation')))
+        .resolvesOnce(turn(use('submit_alert', SUBMISSION)));
+
+      const out = await run();
+      expect(out.turns).toBe(2);
+      const last = sentInput(3);
+      expect(last.toolConfig?.toolChoice).toBeUndefined();
+      expect(last.inferenceConfig?.temperature).toBeUndefined();
+    });
+
+    it('without a forced tool choice, reminds once when the model answers in prose', async () => {
+      bedrock
+        .on(ConverseCommand)
+        .rejectsOnce(validation('tool_choice: type "any" is not supported'))
+        .resolvesOnce(turn({ text: 'Zone A looks isolated.' }))
+        .resolvesOnce(turn(use('submit_alert', SUBMISSION)));
+
+      const out = await run();
+      expect(out.submission).toEqual(SUBMISSION);
+      expect(sentMessages(2).at(-1)).toEqual({
+        role: 'user',
+        content: [{ text: SUBMIT_REMINDER }],
+      });
+    });
+
+    it('throws no_submit if the model ignores the reminder', async () => {
+      bedrock
+        .on(ConverseCommand)
+        .rejectsOnce(validation('tool_choice: type "any" is not supported'))
+        .resolves(turn({ text: 'Zone A looks isolated.' }));
+
+      expect((await agentError(run())).code).toBe('no_submit');
+      expect(bedrock.commandCalls(ConverseCommand)).toHaveLength(3);
+    });
+
+    it('treats any other ValidationException as model_error', async () => {
+      bedrock.on(ConverseCommand).rejects(validation('messages: field required'));
+      expect((await agentError(run())).code).toBe('model_error');
+      expect(bedrock.commandCalls(ConverseCommand)).toHaveLength(1);
+    });
   });
 
   it('wraps SDK errors as model_error', async () => {
