@@ -7,9 +7,14 @@
  *   409 alert already approved or dispatched
  *   400 empty or unknown actionIds
  * See CONTRACTS.md.
+ *
+ * The pending -> approved update is conditional, so two concurrent approvals cannot both
+ * resume the execution: the loser gets 409. If SendTaskSuccess fails, the alert goes back to
+ * pending so the operator can retry instead of it being stuck at "approved".
  */
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { SFNClient, SendTaskSuccessCommand } from '@aws-sdk/client-sfn';
 import { ApproveRequestSchema, type AlertCardData } from '@gridrisk/shared';
 import { ddb, ALERTS_TABLE } from './shared/ddb';
@@ -52,26 +57,54 @@ export const handler = withErrorHandling(
       return fail('BAD_REQUEST', `Unknown actionIds: ${unknown.join(', ')}`);
     }
 
-    // Mark approved and resume the waiting execution. Dispatch + MarkDispatched
-    // run inside the state machine, which will flip status to 'dispatched'.
-    const updated = await ddb.send(
-      new UpdateCommand({
-        TableName: ALERTS_TABLE(),
-        Key: { id },
-        UpdateExpression: 'SET #s = :approved, approvedActionIds = :ids',
-        ExpressionAttributeNames: { '#s': 'status' },
-        ExpressionAttributeValues: { ':approved': 'approved', ':ids': actionIds },
-        ReturnValues: 'ALL_NEW',
-      }),
-    );
-
-    if (alert.taskToken) {
-      await sfn.send(
-        new SendTaskSuccessCommand({
-          taskToken: alert.taskToken,
-          output: JSON.stringify({ alertId: id, actionIds }),
+    // Mark approved (only if still pending) and resume the waiting execution. Dispatch +
+    // MarkDispatched run inside the state machine, which will flip status to 'dispatched'.
+    let updated;
+    try {
+      updated = await ddb.send(
+        new UpdateCommand({
+          TableName: ALERTS_TABLE(),
+          Key: { id },
+          UpdateExpression: 'SET #s = :approved, approvedActionIds = :ids',
+          ConditionExpression: '#s = :pending',
+          ExpressionAttributeNames: { '#s': 'status' },
+          ExpressionAttributeValues: {
+            ':approved': 'approved',
+            ':pending': 'pending',
+            ':ids': actionIds,
+          },
+          ReturnValues: 'ALL_NEW',
         }),
       );
+    } catch (err) {
+      if (err instanceof ConditionalCheckFailedException) {
+        return fail('CONFLICT', 'Alert was approved by someone else');
+      }
+      throw err;
+    }
+
+    if (alert.taskToken) {
+      try {
+        await sfn.send(
+          new SendTaskSuccessCommand({
+            taskToken: alert.taskToken,
+            output: JSON.stringify({ alertId: id, actionIds }),
+          }),
+        );
+      } catch (err) {
+        // Roll back so the alert is approvable again, then surface a 500.
+        await ddb.send(
+          new UpdateCommand({
+            TableName: ALERTS_TABLE(),
+            Key: { id },
+            UpdateExpression: 'SET #s = :pending REMOVE approvedActionIds',
+            ConditionExpression: '#s = :approved',
+            ExpressionAttributeNames: { '#s': 'status' },
+            ExpressionAttributeValues: { ':pending': 'pending', ':approved': 'approved' },
+          }),
+        );
+        throw err;
+      }
     }
 
     return ok({ alert: toCardData(updated.Attributes as StoredAlert) });

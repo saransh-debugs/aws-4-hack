@@ -8,7 +8,7 @@ import {
   ZONE_A,
   ZONES,
 } from '@gridrisk/shared/fixtures';
-import { DEFAULT_CONFIG, buildScenario } from '@gridrisk/engine';
+import { DEFAULT_CONFIG, buildScenario, dependentPatients } from '@gridrisk/engine';
 import {
   AgentError,
   assembleAlert,
@@ -42,10 +42,10 @@ describe('A1 tools (stub)', () => {
     for (const spec of TOOL_SPECS) expect(spec.inputSchema?.json).not.toHaveProperty('$schema');
   });
 
-  it('returns engine fixture data for a known zone', () => {
+  it('returns live engine data for a known zone', () => {
     expect(executeTool('get_dependent_patients', { zoneId: ZONE_A.id }, ctx)).toEqual({
       ok: true,
-      output: { zoneId: ZONE_A.id, dependentPatients: 340 },
+      output: { zoneId: ZONE_A.id, dependentPatients: dependentPatients(ZONE_A) },
     });
   });
 

@@ -15,5 +15,20 @@ export function buildScenario(name: ScenarioName): DemoEvent[] {
       return structuredClone(CALM_EVENTS);
     case 'escalation':
       return structuredClone([...CALM_EVENTS, ...ESCALATION_EVENTS]);
+    case 'partial':
+      return structuredClone([
+        ...CALM_EVENTS.filter((event) => event.type !== 'road_closure'),
+        ESCALATION_EVENTS[0]!,
+      ]);
+    case 'reopened':
+      return structuredClone([
+        ...CALM_EVENTS.filter((event) => event.type !== 'road_closure'),
+        ESCALATION_EVENTS[0]!,
+        ...ESCALATION_EVENTS.filter((event) => event.type === '911'),
+      ]);
   }
 }
+
+/** Scenario helpers kept explicit so tests and demos can build variants without mutating fixtures. */
+export const buildPartialScenario = (): DemoEvent[] => buildScenario('partial');
+export const buildReopenedScenario = (): DemoEvent[] => buildScenario('reopened');

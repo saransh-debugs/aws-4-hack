@@ -16,3 +16,11 @@ export const DEFAULT_CONFIG: EngineConfig = {
   avgBackupMinutes: 120,
   estimatedResponseMinutes: 75,
 };
+
+export function validateEngineConfig(config: EngineConfig): void {
+  for (const [name, value] of Object.entries(config)) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`${name} must be a finite non-negative number`);
+    }
+  }
+}

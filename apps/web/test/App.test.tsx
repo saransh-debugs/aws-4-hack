@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from '../src/App';
-import { MockAdapter } from '../src/data/MockAdapter';
-import { parseDataMode, selectAdapter } from '../src/data/selectAdapter';
-import { useGridStore } from '../src/store';
+import { apiBaseUrl, parseDataMode, selectAdapter } from '../src/data/selectAdapter';
+import { LiveAdapter } from '../src/data/LiveAdapter';
 
 // maplibre-gl needs WebGL, which jsdom doesn't have.
 vi.mock('../src/map/MapComponent', () => ({ default: () => <div data-testid="map" /> }));
@@ -87,5 +86,14 @@ describe('selectAdapter', () => {
 
   it('live mode rejects until LiveAdapter lands (Task 13a)', async () => {
     await expect(selectAdapter('live').getEvents()).rejects.toThrow(/not implemented/);
+  });
+
+  it('live mode returns a LiveAdapter, defaulting to same-origin /api', () => {
+    expect(selectAdapter('live')).toBeInstanceOf(LiveAdapter);
+    expect(apiBaseUrl(undefined)).toBe('/api');
+    expect(apiBaseUrl('  ')).toBe('/api');
+    expect(apiBaseUrl('https://x.execute-api.us-east-1.amazonaws.com')).toBe(
+      'https://x.execute-api.us-east-1.amazonaws.com',
+    );
   });
 });
