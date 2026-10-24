@@ -478,8 +478,12 @@ function handler(event) {
       keyName: `${this.stackName}-maps-key`,
       noExpiry: true,
       restrictions: {
-        allowActions: ['geo-maps:GetStaticMap', 'geo-maps:GetTile'],
-        allowResources: [`arn:aws:geo-maps:${this.region}::provider/default`],
+        // Map tiles, plus Routes for the road-following evacuation route drawn after dispatch.
+        allowActions: ['geo-maps:GetStaticMap', 'geo-maps:GetTile', 'geo-routes:CalculateRoutes'],
+        allowResources: [
+          `arn:aws:geo-maps:${this.region}::provider/default`,
+          `arn:aws:geo-routes:${this.region}::provider/default`,
+        ],
         allowReferers: [...allowedOrigins.map((o) => `${o.replace(/\/+$/, '')}/*`), `${webUrl}/*`],
       },
     });

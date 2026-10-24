@@ -140,30 +140,266 @@ export function gridToGeoJSON(
 
 export const GRID_SOURCE_ID = 'offline-grid';
 
-/** Bundled style used when no Amazon Location key is set: dark background plus a grid. */
+/** Bundled light style used when no Amazon Location key is set: a pale background plus a grid. */
 export const OFFLINE_STYLE = {
   version: 8 as const,
   sources: {
     [GRID_SOURCE_ID]: { type: 'geojson' as const, data: gridToGeoJSON() },
   },
   layers: [
-    { id: 'background', type: 'background' as const, paint: { 'background-color': '#0b1220' } },
+    { id: 'background', type: 'background' as const, paint: { 'background-color': '#eef2f6' } },
     {
       id: 'offline-grid-lines',
       type: 'line' as const,
       source: GRID_SOURCE_ID,
-      paint: { 'line-color': '#334155', 'line-width': 1 },
+      paint: { 'line-color': '#cbd5e1', 'line-width': 1 },
     },
   ],
 };
 
-/** TODO: confirm this URL against the current Amazon Location Service maps docs. */
-export function locationStyleUrl(apiKey: string): string {
-  return `https://maps.geo.us-east-1.amazonaws.com/v2/styles/Monochrome/descriptor?key=${encodeURIComponent(apiKey)}&color-scheme=Dark`;
+/** Basemaps the map switcher offers. */
+export type Basemap = 'streets' | 'satellite' | 'dark';
+
+export const BASEMAPS: { id: Basemap; label: string }[] = [
+  { id: 'streets', label: 'Streets' },
+  { id: 'satellite', label: 'Satellite' },
+  { id: 'dark', label: 'Dark' },
+];
+
+export interface MapStyleOptions {
+  basemap?: Basemap;
+  /** Live traffic flow and incidents (Amazon Location `traffic=All`). */
+  traffic?: boolean;
 }
 
-export function resolveMapStyle(apiKey: string | undefined): string | typeof OFFLINE_STYLE {
-  return apiKey ? locationStyleUrl(apiKey) : OFFLINE_STYLE;
+/**
+ * Amazon Location Maps v2 style descriptor URL.
+ *   streets   -> Standard, Light, hillshade terrain (colorful: parks, water, roads by class)
+ *   satellite -> Hybrid (imagery plus road and label overlays)
+ *   dark      -> Standard, Dark
+ * `traffic` adds real-time congestion colors (all styles support it except Satellite; Hybrid does).
+ */
+export function locationStyleUrl(apiKey: string, options: MapStyleOptions = {}): string {
+  const { basemap = 'streets', traffic = true } = options;
+  const style = basemap === 'satellite' ? 'Hybrid' : 'Standard';
+  const params = new URLSearchParams({ key: apiKey });
+  if (basemap !== 'satellite') {
+    params.set('color-scheme', basemap === 'dark' ? 'Dark' : 'Light');
+    params.set('terrain', 'Hillshade');
+  }
+  params.set('political-view', 'USA');
+  if (traffic) params.set('traffic', 'All');
+  return `https://maps.geo.us-east-1.amazonaws.com/v2/styles/${style}/descriptor?${params}`;
+}
+
+export function resolveMapStyle(
+  apiKey: string | undefined,
+  options: MapStyleOptions = {},
+): string | typeof OFFLINE_STYLE {
+  return apiKey ? locationStyleUrl(apiKey, options) : OFFLINE_STYLE;
+}
+
+// ---------- Situation overlays (zones by status, access roads, weather cells, heat) ----------
+
+/** Map palette. Chosen to read on a light basemap and on satellite imagery. */
+export const PALETTE = {
+  monitored: '#2563eb', // blue-600
+  outage: '#f59e0b', // amber-500
+  isolated: '#dc2626', // red-600
+  roadOpen: '#16a34a', // green-600
+  roadClosed: '#dc2626',
+  weather: '#0ea5e9', // sky-500
+  shelter: '#0d9488', // teal-600
+  shelterActive: '#16a34a',
+  evacuation: '#16a34a',
+  drone: '#7c3aed', // violet-600
+  related: '#f97316', // orange-500
+  casing: '#ffffff',
+} as const;
+
+export type ZoneStatus = 'monitored' | 'outage' | 'isolated';
+export type ZoneStatusProps = ZoneProps & { status: ZoneStatus; color: string };
+
+/** The engine's view of a zone, as far as the map needs it. */
+export interface ZoneSituation {
+  zoneId: string;
+  isolated: boolean;
+  outageEventIds: string[];
+  dependentPatients?: number;
+}
+
+/** Every monitored zone, colored by status: blue (normal), amber (power out), red (cut off). */
+export function zoneStatusesToGeoJSON(
+  zones: Zone[],
+  situations: ZoneSituation[],
+): FeatureCollection<Polygon, ZoneStatusProps> {
+  return collection(
+    zones.map((z) => {
+      const s = situations.find((x) => x.zoneId === z.id);
+      const status: ZoneStatus = s?.isolated
+        ? 'isolated'
+        : s && s.outageEventIds.length > 0
+          ? 'outage'
+          : 'monitored';
+      return {
+        type: 'Feature' as const,
+        geometry: z.polygon,
+        properties: { id: z.id, name: z.name, status, color: PALETTE[status] },
+      };
+    }),
+  );
+}
+
+export type AccessRoadProps = RoadProps & { status: 'open' | 'closed'; color: string };
+
+/** Every zone access road: green when open, red when a closure cuts it. */
+export function accessRoadsToGeoJSON(
+  roads: RoadSegment[],
+  zones: Zone[],
+  closedRoadIds: string[],
+): FeatureCollection<LineString, AccessRoadProps> {
+  const access = new Set(zones.flatMap((z) => z.accessRoadIds));
+  const closed = new Set(closedRoadIds);
+  return collection(
+    roads
+      .filter((r) => access.has(r.id))
+      .map((r) => {
+        const status = closed.has(r.id) ? ('closed' as const) : ('open' as const);
+        return {
+          type: 'Feature' as const,
+          geometry: r.line,
+          properties: {
+            id: r.id,
+            name: r.name,
+            status,
+            color: status === 'closed' ? PALETTE.roadClosed : PALETTE.roadOpen,
+          },
+        };
+      }),
+  );
+}
+
+/** A circle as a polygon (equirectangular approximation; fine at city scale). */
+export function circlePolygon(
+  center: { lat: number; lon: number },
+  radiusKm: number,
+  steps = 48,
+): Polygon {
+  const dLat = radiusKm / 110.574;
+  const dLon = radiusKm / (111.32 * Math.cos((center.lat * Math.PI) / 180));
+  const ring: [number, number][] = Array.from({ length: steps }, (_, i) => {
+    const a = (i / steps) * 2 * Math.PI;
+    return [center.lon + dLon * Math.cos(a), center.lat + dLat * Math.sin(a)];
+  });
+  ring.push(ring[0]!);
+  return { type: 'Polygon', coordinates: [ring] };
+}
+
+export type WeatherCellProps = { id: string; severity: Severity; description: string };
+
+/** Weather events as translucent storm cells; high-severity warnings get a larger radius. */
+export function weatherCellsToGeoJSON(
+  events: DemoEvent[],
+): FeatureCollection<Polygon, WeatherCellProps> {
+  return collection(
+    events
+      .filter((e) => e.type === 'weather')
+      .map((e) => ({
+        type: 'Feature' as const,
+        geometry: circlePolygon(e, e.severity === 'low' ? 1.2 : 2.4),
+        properties: { id: e.id, severity: e.severity, description: e.description },
+      })),
+  );
+}
+
+const SEVERITY_WEIGHT: Record<Severity, number> = { low: 0.2, high: 0.6, critical: 1 };
+
+/** Non-weather events weighted by severity, for the impact heatmap. */
+export function impactHeatToGeoJSON(
+  events: DemoEvent[],
+): FeatureCollection<Point, { weight: number }> {
+  return collection(
+    events
+      .filter((e) => e.type !== 'weather')
+      .map((e) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [e.lon, e.lat] as [number, number] },
+        properties: { weight: SEVERITY_WEIGHT[e.severity] },
+      })),
+  );
+}
+
+/** [[west, south], [east, north]] around the zones and shelters, padded by `padDeg`. */
+export function overviewBounds(
+  zones: Zone[],
+  points: { lat: number; lon: number }[],
+  padDeg = 0.01,
+): [[number, number], [number, number]] {
+  const coords: [number, number][] = [
+    ...zones.flatMap((z) => z.polygon.coordinates[0] ?? []),
+    ...points.map((p) => [p.lon, p.lat] as [number, number]),
+  ];
+  if (coords.length === 0) {
+    return [
+      [HOUSTON_CENTER.lon - 0.1, HOUSTON_CENTER.lat - 0.1],
+      [HOUSTON_CENTER.lon + 0.1, HOUSTON_CENTER.lat + 0.1],
+    ];
+  }
+  const lons = coords.map((c) => c[0]);
+  const lats = coords.map((c) => c[1]);
+  return [
+    [Math.min(...lons) - padDeg, Math.min(...lats) - padDeg],
+    [Math.max(...lons) + padDeg, Math.max(...lats) + padDeg],
+  ];
+}
+
+/** Top-center of a zone (its north edge, midway across), where the zone's label sits. */
+export function zoneLabelAnchor(polygon: Polygon): [number, number] {
+  const ring = polygon.coordinates[0] ?? [];
+  if (ring.length === 0) return [0, 0];
+  const lons = ring.map((c) => c[0]);
+  const lats = ring.map((c) => c[1]);
+  return [(Math.min(...lons) + Math.max(...lons)) / 2, Math.max(...lats)];
+}
+
+/** The point a fraction `t` (0..1) of the way along a polyline, by distance. */
+export function pointAlong(coords: [number, number][], t: number): [number, number] {
+  if (coords.length === 0) return [0, 0];
+  if (coords.length === 1 || t <= 0) return coords[0]!;
+  const seg = coords.slice(1).map((c, i) => Math.hypot(c[0] - coords[i]![0], c[1] - coords[i]![1]));
+  const total = seg.reduce((a, b) => a + b, 0);
+  let left = Math.min(1, t) * total;
+  for (let i = 0; i < seg.length; i++) {
+    const len = seg[i]!;
+    if (left <= len || i === seg.length - 1) {
+      const f = len === 0 ? 1 : Math.min(1, left / len);
+      const [a, b] = [coords[i]!, coords[i + 1]!];
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+    }
+    left -= len;
+  }
+  return coords[coords.length - 1]!;
+}
+
+export type EvacuationProps = { zoneId: string; shelterId: string };
+
+/** Evacuation routes from a zone's centroid to the shelter an approved alert activated. */
+export function evacuationRoutesToGeoJSON(
+  pairs: { zone: Zone; shelter: Shelter }[],
+): FeatureCollection<LineString, EvacuationProps> {
+  return collection(
+    pairs.map(({ zone, shelter }) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: [
+          polygonCentroid(zone.polygon),
+          [shelter.lon, shelter.lat] as [number, number],
+        ],
+      },
+      properties: { zoneId: zone.id, shelterId: shelter.id },
+    })),
+  );
 }
 
 // ---------- Task 5: alert overlays (related lines, drone, shelter state) ----------

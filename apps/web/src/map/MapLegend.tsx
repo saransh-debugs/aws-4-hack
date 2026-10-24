@@ -1,24 +1,65 @@
-const ITEMS: Array<{ label: string; swatch: string }> = [
-  { label: 'Critical event', swatch: 'h-3 w-3 rounded-full bg-critical' },
-  { label: 'High event', swatch: 'h-3 w-3 rounded-full bg-orange-500' },
-  { label: 'Low event', swatch: 'h-3 w-3 rounded-full bg-slate-400' },
-  { label: 'Outage zone', swatch: 'h-3 w-4 border border-red-500 bg-red-500/30' },
-  { label: 'Closed road', swatch: 'h-1 w-4 bg-yellow-400' },
-  { label: 'Shelter', swatch: 'h-3 w-3 rounded-sm border border-sky-400' },
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { PALETTE } from './geo';
+
+type Item = { label: string; swatch: React.CSSProperties; round?: boolean; line?: boolean };
+
+const ITEMS: Item[] = [
+  {
+    label: 'Zone cut off',
+    swatch: { background: `${PALETTE.isolated}40`, borderColor: PALETTE.isolated },
+  },
+  {
+    label: 'Zone power out',
+    swatch: { background: `${PALETTE.outage}40`, borderColor: PALETTE.outage },
+  },
+  {
+    label: 'Zone monitored',
+    swatch: { background: `${PALETTE.monitored}1f`, borderColor: PALETTE.monitored },
+  },
+  { label: 'Access road open', swatch: { background: PALETTE.roadOpen }, line: true },
+  { label: 'Access road closed', swatch: { background: PALETTE.roadClosed }, line: true },
+  {
+    label: 'Storm cell',
+    swatch: { background: `${PALETTE.weather}4d`, borderColor: PALETTE.weather },
+    round: true,
+  },
+  { label: 'Outage', swatch: { background: PALETTE.outage }, round: true },
+  { label: 'Road closure', swatch: { background: '#ea580c' }, round: true },
+  { label: 'Weather', swatch: { background: PALETTE.weather }, round: true },
+  { label: 'Shelter', swatch: { background: PALETTE.shelter } },
+  { label: 'Evacuation route', swatch: { background: PALETTE.evacuation }, line: true },
+  { label: 'Drone path', swatch: { background: PALETTE.drone }, line: true },
 ];
 
 export function MapLegend() {
+  const [open, setOpen] = useState(true);
   return (
-    <ul
-      aria-label="Map legend"
-      className="absolute bottom-6 left-3 space-y-1 rounded border border-slate-700 bg-slate-900/90 px-3 py-2 font-mono text-xs text-slate-200"
-    >
-      {ITEMS.map((i) => (
-        <li key={i.label} className="flex items-center gap-2">
-          <span aria-hidden="true" className={i.swatch} />
-          {i.label}
-        </li>
-      ))}
-    </ul>
+    <div className="map-legend">
+      <button
+        type="button"
+        className="map-legend__toggle"
+        aria-expanded={open}
+        aria-controls="map-legend-list"
+        onClick={() => setOpen((o) => !o)}
+      >
+        Legend
+        <ChevronDown aria-hidden="true" size={14} className={open ? 'rotate-180' : ''} />
+      </button>
+      {open && (
+        <ul id="map-legend-list" aria-label="Map legend" className="map-legend__list">
+          {ITEMS.map((i) => (
+            <li key={i.label}>
+              <span
+                aria-hidden="true"
+                className={`map-legend__swatch${i.round ? ' map-legend__swatch--round' : ''}${i.line ? ' map-legend__swatch--line' : ''}`}
+                style={i.swatch}
+              />
+              {i.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
