@@ -107,7 +107,9 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
     primary web origin, byte-for-byte identical for single-origin deploys) to avoid the
     replacement that previously caused DELETE_FAILED. The CloudFront domain is not added to the key
     referrers (it would only matter if tiles were loaded from that origin; API calls go same-origin).
-- [ ] **Task 16: Hardening** (all)
+- [x] **Task 16: Hardening** (all). Shift+R reset (web + e2e); offline mock mode is covered by the
+      Playwright job; 5 live reset → simulate → approve runs in a row all reached `dispatched`
+      (alert in 7–8 s, real Claude, 6-step trace); the README runbook covers deploy and demo mode.
   - A hidden Shift+R reset that calls `/simulate/reset` or resets the mock store.
   - Check that it works offline: no Location key, no network, no Bedrock (**Tanisha**).
   - Write the README runbook: setup, env vars, deploy, demo mode (**Tanisha**, you supply the deploy steps).

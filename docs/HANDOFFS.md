@@ -21,9 +21,9 @@ When the real implementation lands, the stub is replaced behind the same signatu
 | H3  | Engine `analyze()` + tool functions                     | Tanisha → Saransh                | yes            | M1      | ✅ deterministic geospatial engine  |
 | H4  | `snapshots/*.json` + NWS normalizer                     | Tanisha → Darsh (ingest), Bushra | fixture        | M1      | ✅ NWS + emPOWER snapshots          |
 | H5  | `runAgent(input)`                                       | Saransh → Darsh                  | yes (template) | M2      | ✅ Bedrock loop + template fallback |
-| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | 🟢 code-complete                    |
-| H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | 🟢 code-complete                    |
-| H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | 🟡 interface only                   |
+| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | ✅ deployed, published to SSM       |
+| H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | ✅ deployed, verified end to end    |
+| H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | ✅ real, passes the contract suite  |
 | H9  | Agent `toolTrace` format on alert                       | Saransh → Bushra                 | fixture        | M2      | ✅ populated on model-path alerts   |
 
 Status key: ⬜ not started · 🟡 stub or partial · 🟢 code-complete (CDK merged, not yet deployed) · ✅ real and merged

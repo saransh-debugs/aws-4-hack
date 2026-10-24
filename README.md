@@ -4,8 +4,9 @@ GridRisk links separate emergency feeds (power outages, flooded roads) into a si
 risk, works out how much time is left, and proposes actions that **a human approves** before
 anything is dispatched. Built on AWS: Amazon Location, Bedrock, Step Functions and SNS.
 
-> Status: **Prototype integration**. The backend, agent, scheduled data ingest, provider adapters, and
-> offline snapshots are implemented. The web map and live-provider validation still need follow-through.
+> Status: **Deployed demo**. Hosted on CloudFront (`/gridrisk/web-url` in SSM) with Cognito sign-in.
+> Simulate → Claude (Bedrock, Sonnet 4.6) proposes a grounded alert → a human approves → Step Functions
+> dispatches via SNS. Mock mode runs the same loop fully offline.
 
 ## Quickstart
 
@@ -160,11 +161,11 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" "$API/simulate/reset" | jq '.e
 
 ### Map status
 
-The CDK stack provisions an Amazon Location map, a referrer-restricted API key, and a route calculator.
-The frontend does not consume those resources yet: `apps/web/src/App.tsx` still renders the
-`MapComponent (Task 3)` placeholder, and event selection does not fly the map to an event. Until Task 3
-is implemented, the app remains a dashboard shell with an event feed. The intended fallback is the
-bundled offline dark style when `VITE_LOCATION_API_KEY` is empty.
+The map uses the Amazon Location Maps v2 dark Monochrome style through a referrer-restricted API
+key (`MapsApiKey`: localhost, `WEB_ORIGIN` and the CloudFront site). `deploy.sh` reads the key and
+bakes it into the hosted build as `VITE_LOCATION_API_KEY`. Without a key the map falls back to the
+bundled offline dark grid style. Selecting an event flies the map to it; an alert draws the
+outage → closure links, and approval turns the shelter green and flies a drone toward the zone.
 
 ### Mock / offline mode
 
