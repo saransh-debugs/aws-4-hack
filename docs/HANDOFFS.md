@@ -21,12 +21,20 @@ When the real implementation lands, the stub is replaced behind the same signatu
 | H3  | Engine `analyze()` + tool functions                     | Tanisha → Saransh                | yes            | M1      | 🟡 stub delivered |
 | H4  | `snapshots/*.json` + NWS normalizer                     | Tanisha → Darsh (ingest), Bushra | fixture        | M1      | 🟡 fixture only   |
 | H5  | `runAgent(input)`                                       | Saransh → Darsh                  | yes (template) | M2      | 🟡 stub delivered |
-| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | 🟡 `.env.example` |
-| H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | ⬜ not started    |
+| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | 🟢 code-complete  |
+| H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | 🟢 code-complete  |
 | H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | 🟡 interface only |
 | H9  | Agent `toolTrace` format on alert                       | Saransh → Bushra                 | fixture        | M2      | 🟡 schema only    |
 
-Status key: ⬜ not started · 🟡 stub or partial · ✅ real and merged
+Status key: ⬜ not started · 🟡 stub or partial · 🟢 code-complete (CDK merged, not yet deployed) · ✅ real and merged
+
+> **H6/H7 (Darsh):** the CDK stack is built and `cdk synth` + infra tests are green, so the
+> approve endpoint, Step Functions workflow, and the SSM-published `.env` values are code-complete.
+> They flip to ✅ once `cdk deploy` runs — currently blocked because the workshop `WSParticipantRole`
+> lacks `iam:CreateRole` (AWS team is enabling it). Deploy steps + the curl demo are in the README
+> runbook. @BUSHRA_HANDLE — the `LiveAdapter` can be wired against CONTRACTS.md now; the deployed URL
+>
+> - Cognito IDs land in SSM the moment IAM is unblocked.
 
 The agent (H5, H9) is built in four slices, one per person: A1 tools (Tanisha), A2 output and
 grounding (Bushra), A3 Converse loop (Saransh), A4 orchestration and Lambda (Darsh). The
