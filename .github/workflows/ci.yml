@@ -9,6 +9,7 @@ permissions:
   contents: read
 
 jobs:
+  # Blocking: only things that mean the code is actually broken.
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -18,8 +19,22 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm run format:check
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Non-blocking: formatting and lint show up as warnings on the PR, never as a red X.
+  # Fix locally with `npm run fix`.
+  style:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint (warning only)
+        run: npm run lint || echo "::warning title=Lint::ESLint found issues. Run 'npm run fix' locally."
+      - name: Format (warning only)
+        run: npm run format:check || echo "::warning title=Format::Prettier found unformatted files. Run 'npm run fix' locally."

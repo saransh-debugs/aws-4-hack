@@ -1,6 +1,6 @@
 # GridRisk – AI EOC Copilot
 
-GridRisk links separate emergency feeds (power outages, flooded roads)  into a single
+GridRisk links separate emergency feeds (power outages, flooded roads) into a single
 risk, works out how much time is left, and proposes actions that **a human approves** before
 anything is dispatched. Built on AWS: Amazon Location, Bedrock, Step Functions and SNS.
 
@@ -13,7 +13,7 @@ nvm use            # Node 22 (CI). Node >= 20.19 also works locally.
 npm install
 cp .env.example .env   # optional; defaults to fully offline mock mode
 npm run dev            # web app at http://localhost:5173
-npm run verify         # lint + format + typecheck + test + build (same as CI)
+npm run verify         # auto-fix format/lint, then typecheck + test + build (CI blocks only on the last 3)
 ```
 
 ## Who does what
