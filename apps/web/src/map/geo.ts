@@ -165,3 +165,82 @@ export function locationStyleUrl(apiKey: string): string {
 export function resolveMapStyle(apiKey: string | undefined): string | typeof OFFLINE_STYLE {
   return apiKey ? locationStyleUrl(apiKey) : OFFLINE_STYLE;
 }
+
+// ---------- Task 5: alert overlays (related lines, drone, shelter state) ----------
+
+/** Average of a polygon's outer ring vertices (the closing vertex is dropped). */
+export function polygonCentroid(polygon: Polygon): [number, number] {
+  const ring = polygon.coordinates[0] ?? [];
+  // A GeoJSON ring repeats its first point as its last; drop it so it isn't double-counted.
+  const pts = ring.length > 1 ? ring.slice(0, -1) : ring;
+  if (pts.length === 0) return [0, 0];
+  let lon = 0;
+  let lat = 0;
+  for (const [x, y] of pts) {
+    lon += x;
+    lat += y;
+  }
+  return [lon / pts.length, lat / pts.length];
+}
+
+export type RelatedLineProps = { order: number };
+
+/**
+ * A single LineString connecting an alert's related events, in the order outage → closure →
+ * any others. The order follows `alert.relatedEventIds`, which the engine emits as outage first.
+ * Returns an empty collection when fewer than two of the ids resolve to events.
+ */
+export function relatedEventLinesToGeoJSON(
+  relatedEventIds: string[],
+  events: DemoEvent[],
+): FeatureCollection<LineString, RelatedLineProps> {
+  const byId = new Map(events.map((e) => [e.id, e]));
+  const coords = relatedEventIds
+    .map((id) => byId.get(id))
+    .filter((e): e is DemoEvent => e !== undefined)
+    .map((e) => [e.lon, e.lat] as [number, number]);
+  if (coords.length < 2) return collection<LineString, RelatedLineProps>([]);
+  return collection([
+    {
+      type: 'Feature' as const,
+      geometry: { type: 'LineString' as const, coordinates: coords },
+      properties: { order: 0 },
+    },
+  ]);
+}
+
+export type DroneProps = { zoneId: string };
+
+/**
+ * The drone's flight path from a base point to a zone's centroid, drawn only after a
+ * dispatch_drone action is approved. Returns an empty collection when the zone is missing.
+ */
+export function dronePathToGeoJSON(
+  base: { lat: number; lon: number },
+  zone: Zone | undefined,
+): FeatureCollection<LineString, DroneProps> {
+  if (!zone) return collection<LineString, DroneProps>([]);
+  const target = polygonCentroid(zone.polygon);
+  return collection([
+    {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: [[base.lon, base.lat] as [number, number], target],
+      },
+      properties: { zoneId: zone.id },
+    },
+  ]);
+}
+
+/**
+ * Shelters with the ids in `activatedShelterIds` flipped to `active`, so the map can turn a
+ * dispatched shelter green. Other shelters are returned unchanged.
+ */
+export function withActivatedShelters(
+  shelters: Shelter[],
+  activatedShelterIds: Iterable<string>,
+): Shelter[] {
+  const active = new Set(activatedShelterIds);
+  return shelters.map((s) => (active.has(s.id) ? { ...s, status: 'active' as const } : s));
+}

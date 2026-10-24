@@ -74,6 +74,30 @@ describe('App shell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
     expect((await screen.findByRole('alert')).textContent).toBe('boom');
   });
+
+  it('Shift+R resets to the calm baseline (Task 16)', async () => {
+    const adapter = new MockAdapter();
+    const resetSpy = vi.spyOn(adapter, 'reset');
+    render(<App adapter={adapter} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
+    await screen.findByText(/ZONE A ISOLATED/);
+
+    fireEvent.keyDown(window, { key: 'R', shiftKey: true });
+    await waitFor(() => expect(resetSpy).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByLabelText('Event count').textContent).toBe('EVENTS: 3'));
+  });
+
+  it('Shift+R is ignored while typing in an input', async () => {
+    const adapter = new MockAdapter();
+    const resetSpy = vi.spyOn(adapter, 'reset');
+    render(<App adapter={adapter} />);
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    fireEvent.keyDown(input, { key: 'R', shiftKey: true });
+    expect(resetSpy).not.toHaveBeenCalled();
+    input.remove();
+  });
 });
 
 describe('selectAdapter', () => {

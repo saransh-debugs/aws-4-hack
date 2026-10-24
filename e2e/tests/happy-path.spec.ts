@@ -71,12 +71,15 @@ test.describe('demo loop', () => {
     await expect(page.getByRole('article', { name: /isolated/i })).toHaveCount(0);
   });
 
-  // Task 16 (hidden Shift+R reset). Un-fixme when it lands.
-  test.fixme('hidden Shift+R reset returns to the calm baseline', async ({ page }) => {
+  // Task 16 (hidden Shift+R reset).
+  test('hidden Shift+R reset returns to the calm baseline', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: /^simulate$/i }).click();
     await expect(zoneAAlert(page)).toBeVisible();
+    // Move focus off any form control so the shortcut is not ignored.
+    await page.locator('body').click();
     await page.keyboard.press('Shift+R');
     await expect(page.getByRole('article', { name: /isolated/i })).toHaveCount(0);
+    await expect(eventItems(page)).toHaveCount(CALM_EVENT_COUNT);
   });
 });

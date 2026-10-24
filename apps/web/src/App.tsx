@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useMemo } from 'react';
-import { AdapterProvider } from './data/AdapterContext';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { AdapterProvider, useAdapter } from './data/AdapterContext';
 import type { DataAdapter } from './data/DataAdapter';
 import { selectAdapter } from './data/selectAdapter';
 import { useRefresh } from './data/useGridData';
+import { AlertCard } from './components/AlertCard';
 import { DevToolbar } from './components/DevToolbar';
 import { EventFeed } from './components/EventFeed';
 import { MapBoundary } from './components/MapBoundary';
@@ -12,16 +13,66 @@ import { useGridStore } from './store';
 // Lazy so maplibre-gl stays out of the first bundle.
 const MapComponent = lazy(() => import('./map/MapComponent'));
 
+/** Ignore global shortcuts while the user is typing in a form control. */
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+}
+
 function Shell() {
+  const adapter = useAdapter();
   const refresh = useRefresh();
   const events = useGridStore((s) => s.events);
   const alerts = useGridStore((s) => s.alerts);
+  const mode = useGridStore((s) => s.mode);
   const selectedEventId = useGridStore((s) => s.selectedEventId);
   const selectEvent = useGridStore((s) => s.selectEvent);
+  const [offline, setOffline] = useState(false);
+
+  // Replaces the old refresh().catch TODO: surface fetch failures in a banner, clear on success.
+  const safeRefresh = useCallback(async () => {
+    try {
+      await refresh();
+      setOffline(false);
+    } catch {
+      setOffline(true);
+    }
+  }, [refresh]);
 
   useEffect(() => {
-    void refresh().catch(() => undefined); // TODO(Task 13b): show an offline/error banner
-  }, [refresh]);
+    void safeRefresh();
+  }, [safeRefresh]);
+
+  // Live mode: poll events/alerts every 3 s. Mock mode never polls. Pause while the tab is hidden.
+  useEffect(() => {
+    if (mode !== 'live') return;
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void safeRefresh();
+    }, 3000);
+    return () => clearInterval(id);
+  }, [mode, safeRefresh]);
+
+  // Task 16: hidden Shift+R reset. Ignored while focus is in a form control.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.shiftKey || e.key.toLowerCase() !== 'r') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isEditableTarget(e.target)) return;
+      e.preventDefault();
+      void (async () => {
+        try {
+          await adapter.reset();
+          await safeRefresh();
+        } catch {
+          setOffline(true);
+        }
+      })();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [adapter, safeRefresh]);
 
   return (
     <div className="flex h-full flex-col bg-surface text-ink">
@@ -35,6 +86,15 @@ function Shell() {
           </span>
         </div>
       </header>
+
+      {offline && (
+        <p
+          role="alert"
+          className="border-b border-amber-500/50 bg-amber-500/10 px-4 py-1.5 font-mono text-xs text-amber-200"
+        >
+          Offline — could not reach the data source. Retrying…
+        </p>
+      )}
 
       <StatsBar />
 
@@ -56,18 +116,16 @@ function Shell() {
             </Suspense>
           </MapBoundary>
         </section>
-        <aside aria-label="Alerts" className="border-l border-slate-700 p-4">
+        <aside
+          aria-label="Alerts"
+          className="min-h-0 space-y-3 overflow-y-auto border-l border-slate-700 p-4"
+        >
           {alerts.length === 0 ? (
             <p className="text-sm text-slate-300">No active alerts.</p>
           ) : (
-            // TODO(Bushra): replace with AlertCard (Task 5)
-            <ul className="space-y-2">
-              {alerts.map((a) => (
-                <li key={a.id} className="font-mono text-sm">
-                  {a.title} <span className="text-slate-300">({a.status})</span>
-                </li>
-              ))}
-            </ul>
+            alerts.map((a) => (
+              <AlertCard key={a.id} alert={a} onApproved={() => void safeRefresh()} />
+            ))
           )}
         </aside>
       </main>
