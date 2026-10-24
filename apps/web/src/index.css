@@ -90,3 +90,28 @@ body {
 .shelter-pin--active {
   border-color: #22c55e;
 }
+
+/* Recon drone marker, shown after a dispatch_drone action is approved. */
+.drone-marker {
+  display: inline-block;
+  font-size: 18px;
+  line-height: 1;
+  filter: drop-shadow(0 0 3px rgb(168 85 247 / 0.9));
+  animation: drone-hover 1.8s ease-in-out infinite;
+}
+
+@keyframes drone-hover {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drone-marker {
+    animation: none;
+  }
+}

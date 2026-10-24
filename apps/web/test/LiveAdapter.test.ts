@@ -21,8 +21,7 @@ function freshLiveAdapter(token: string | null = 'test-token') {
 
 describeDataAdapterContract('LiveAdapter (MSW)', () => freshLiveAdapter());
 
-// TODO(Bushra): once MockAdapter lands (H8), run the same suite against it:
-// describeDataAdapterContract('MockAdapter', () => new MockAdapter());
+// MockAdapter runs the same contract suite in test/MockAdapter.test.ts.
 
 async function rejection(p: Promise<unknown>): Promise<DataAdapterError> {
   const err = await p.then(

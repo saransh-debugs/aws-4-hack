@@ -6,19 +6,31 @@ import './workerSetup';
 import { analyze } from '@gridrisk/engine';
 import { HOUSTON_CENTER, ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
 import { useGridStore } from '../store';
-import { closedRoadsToGeoJSON, outageZonesToGeoJSON, resolveMapStyle } from './geo';
+import {
+  closedRoadsToGeoJSON,
+  dronePathToGeoJSON,
+  outageZonesToGeoJSON,
+  relatedEventLinesToGeoJSON,
+  resolveMapStyle,
+  withActivatedShelters,
+} from './geo';
 import { MapLegend } from './MapLegend';
 
 const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** The drone's launch point: the first shelter, or the Houston center as a fallback. */
+const DRONE_BASE = SHELTERS[0] ?? HOUSTON_CENTER;
+
 /**
- * Houston map: events, the outage zone (red), closed road (yellow) and shelters.
- * Selecting an event in the store (feed click) flies the map to it.
+ * Houston map: events, the outage zone (red), closed road (yellow), shelters, and the alert
+ * overlays — lines between related events, a drone path and an activated (green) shelter after
+ * dispatch. Selecting an event in the store (feed click) flies the map to it.
  */
 export default function MapComponent() {
   const events = useGridStore((s) => s.events);
+  const alerts = useGridStore((s) => s.alerts);
   const selectedEventId = useGridStore((s) => s.selectedEventId);
   const selectEvent = useGridStore((s) => s.selectEvent);
   const mapRef = useRef<MapRef>(null);
@@ -26,15 +38,51 @@ export default function MapComponent() {
 
   const mapStyle = useMemo(() => resolveMapStyle(import.meta.env.VITE_LOCATION_API_KEY), []);
 
+  const dispatched = useMemo(
+    () => alerts.filter((a) => a.status === 'dispatched' || a.status === 'approved'),
+    [alerts],
+  );
+
+  // Shelters that a dispatched alert activated, so they can render green.
+  const shelters = useMemo(() => {
+    const activatedIds = dispatched.flatMap((a) =>
+      a.proposedActions
+        .filter((p) => p.type === 'activate_shelter')
+        .map((p) => String(p.params.shelterId ?? '')),
+    );
+    return withActivatedShelters(SHELTERS, activatedIds);
+  }, [dispatched]);
+
+  // Zones with an approved drone dispatch → draw a flight path from the base.
+  const dronePaths = useMemo(() => {
+    const zoneIds = dispatched.flatMap((a) =>
+      a.proposedActions
+        .filter((p) => p.type === 'dispatch_drone')
+        .map((p) => String(p.params.zoneId ?? a.zoneId)),
+    );
+    const features = zoneIds.flatMap(
+      (zoneId) =>
+        dronePathToGeoJSON(
+          DRONE_BASE,
+          ZONES.find((z) => z.id === zoneId),
+        ).features,
+    );
+    return { type: 'FeatureCollection' as const, features };
+  }, [dispatched]);
+
   const geo = useMemo(() => {
     const closedRoadIds = analyze(events, ZONES, { shelters: SHELTERS }).flatMap(
       (r) => r.closedAccessRoadIds,
     );
+    const relatedFeatures = alerts.flatMap(
+      (a) => relatedEventLinesToGeoJSON(a.relatedEventIds, events).features,
+    );
     return {
       zones: outageZonesToGeoJSON(ZONES, events),
       roads: closedRoadsToGeoJSON(ROADS, closedRoadIds),
+      related: { type: 'FeatureCollection' as const, features: relatedFeatures },
     };
-  }, [events]);
+  }, [events, alerts]);
 
   useEffect(() => {
     const event = useGridStore.getState().events.find((e) => e.id === selectedEventId);
@@ -81,7 +129,49 @@ export default function MapComponent() {
           />
         </Source>
 
-        {SHELTERS.map((s) => (
+        {/* Dashed lines linking an alert's related events (outage → closure → …). */}
+        <Source id="related" type="geojson" data={geo.related}>
+          <Layer
+            id="related-line"
+            type="line"
+            paint={{
+              'line-color': '#38bdf8',
+              'line-width': 2,
+              'line-dasharray': [2, 2],
+              'line-opacity': 0.85,
+            }}
+          />
+        </Source>
+
+        {/* Drone flight path, shown only after a dispatch_drone action is approved. */}
+        <Source id="drone-path" type="geojson" data={dronePaths}>
+          <Layer
+            id="drone-path-line"
+            type="line"
+            paint={{
+              'line-color': '#a855f7',
+              'line-width': 2,
+              'line-dasharray': [1, 2],
+            }}
+          />
+        </Source>
+
+        {dronePaths.features.map((f) => {
+          const [lon, lat] = f.geometry.coordinates[f.geometry.coordinates.length - 1] ?? [0, 0];
+          return (
+            <Marker key={f.properties.zoneId} latitude={lat} longitude={lon} anchor="center">
+              <span
+                className="drone-marker"
+                role="img"
+                aria-label={`Recon drone en route to ${f.properties.zoneId}`}
+              >
+                🛩️
+              </span>
+            </Marker>
+          );
+        })}
+
+        {shelters.map((s) => (
           <Marker key={s.id} latitude={s.lat} longitude={s.lon} anchor="bottom">
             <div
               className={`shelter-pin shelter-pin--${s.status}`}

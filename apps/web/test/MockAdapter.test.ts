@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { AdapterError } from '../src/data/DataAdapter';
 import { MockAdapter } from '../src/data/MockAdapter';
+import { describeDataAdapterContract } from './contract/dataAdapterContract';
 
 const NOW = new Date('2026-10-23T14:15:00.000Z');
 const make = () => new MockAdapter({ now: () => NOW });
+
+// MockAdapter (H8) must satisfy the same contract as LiveAdapter.
+describeDataAdapterContract('MockAdapter', () => make());
 
 describe('MockAdapter', () => {
   it('starts calm with no alerts', async () => {
