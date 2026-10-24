@@ -1,4 +1,4 @@
-import { CfnOutput, Duration, RemovalPolicy, Stack, Tags, type StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Fn, RemovalPolicy, Stack, Tags, type StackProps } from 'aws-cdk-lib';
 import type { Construct } from 'constructs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -12,11 +12,16 @@ import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as location from 'aws-cdk-lib/aws-location';
 import * as scheduler from 'aws-cdk-lib/aws-scheduler';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { HttpApi, HttpMethod, CorsHttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,7 +52,18 @@ export class GridRiskStack extends Stack {
     Tags.of(this).add('project', 'gridrisk');
 
     const webOrigin = props.webOrigin ?? 'http://localhost:5173';
-    const bedrockModelId = props.bedrockModelId ?? 'anthropic.claude-3-5-sonnet-20240620-v1:0';
+    const bedrockModelId = props.bedrockModelId ?? 'us.anthropic.claude-sonnet-4-6';
+
+    // WEB_ORIGIN may be a comma-separated list. CORS always also allows the local dev origin.
+    const LOCAL_ORIGIN = 'http://localhost:5173';
+    const configuredOrigins = webOrigin
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+    const allowedOrigins = Array.from(new Set([LOCAL_ORIGIN, ...configuredOrigins]));
+    // The first configured origin is treated as the "primary" web origin (used for the Location
+    // key referrer that existed before; kept stable to avoid replacing the LocationApiKey).
+    const primaryWebOrigin = configuredOrigins[0] ?? LOCAL_ORIGIN;
 
     // ---------------------------------------------------------------------
     // Task 10: DynamoDB
@@ -159,17 +175,35 @@ export class GridRiskStack extends Stack {
     const runAgentFn = mkFn('RunAgentFn', 'sfn/runAgent.ts', {
       BEDROCK_MODEL_ID: bedrockModelId,
     });
-    // Task 14: real agent uses Bedrock. 30s timeout, single-model invoke permission.
+    // Task 14: real agent uses Bedrock. 30s timeout, ~512 MB memory, scoped invoke permission.
+    //
+    // `bedrockModelId` is a cross-region inference profile (e.g. us.anthropic.claude-sonnet-4-6).
+    // Invoking it needs BOTH: the inference-profile ARN in this region, AND the underlying
+    // foundation model in every US region the profile can route to. The foundation model id is
+    // the profile id with its regional prefix ('us.' / 'global.') stripped.
+    const isInferenceProfile = /^(us|global)\./.test(bedrockModelId);
+    const foundationModelId = bedrockModelId.replace(/^(us|global)\./, '');
+    const bedrockResources: string[] = [];
+    if (isInferenceProfile) {
+      bedrockResources.push(
+        `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${bedrockModelId}`,
+      );
+      for (const region of ['us-east-1', 'us-east-2', 'us-west-2']) {
+        bedrockResources.push(`arn:aws:bedrock:${region}::foundation-model/${foundationModelId}`);
+      }
+    } else {
+      // Plain foundation model id: just grant that model in this region.
+      bedrockResources.push(`arn:aws:bedrock:${this.region}::foundation-model/${bedrockModelId}`);
+    }
     runAgentFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel'],
-        resources: [
-          `arn:aws:bedrock:${this.region}::foundation-model/${bedrockModelId}`,
-          `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${bedrockModelId}`,
-        ],
+        resources: bedrockResources,
       }),
     );
-    (runAgentFn.node.defaultChild as lambda.CfnFunction).timeout = 30;
+    const runAgentCfn = runAgentFn.node.defaultChild as lambda.CfnFunction;
+    runAgentCfn.timeout = 30;
+    runAgentCfn.memorySize = 512;
     eventsTable.grantReadData(runAgentFn);
 
     const saveAlertFn = mkFn('SaveAlertFn', 'sfn/saveAlert.ts');
@@ -198,6 +232,8 @@ export class GridRiskStack extends Stack {
     const runAgentTask = new tasks.LambdaInvoke(this, 'RunAgent', {
       lambdaFunction: runAgentFn,
       payloadResponseOnly: true,
+      // Lambda timeout is 30 s; give the SFN task headroom above that.
+      taskTimeout: sfn.Timeout.duration(Duration.seconds(60)),
     });
 
     const saveAlertTask = new tasks.LambdaInvoke(this, 'SaveAlert', {
@@ -292,7 +328,7 @@ export class GridRiskStack extends Stack {
     // ---------------------------------------------------------------------
     const httpApi = new HttpApi(this, 'HttpApi', {
       corsPreflight: {
-        allowOrigins: [webOrigin],
+        allowOrigins: allowedOrigins,
         allowMethods: [CorsHttpMethod.GET, CorsHttpMethod.POST, CorsHttpMethod.OPTIONS],
         allowHeaders: ['authorization', 'content-type'],
         maxAge: Duration.hours(1),
@@ -342,7 +378,14 @@ export class GridRiskStack extends Stack {
       configuration: { style: 'VectorEsriDarkGrayCanvas' },
     });
 
-    const referer = `${webOrigin.replace(/\/+$/, '')}/*`;
+    // NOTE: changing the LocationApiKey previously produced DELETE_FAILED on update, so we keep
+    // this resource's logical id ("LocationApiKey") and its properties stable. The referrer is
+    // derived from the primary web origin exactly as before (single-origin deploys are byte-for-byte
+    // identical), so a normal single-origin deploy does not force a replacement. The CloudFront
+    // domain is not known until the distribution exists and is not added here to avoid churn; the
+    // web app loads map tiles via the key with the web origin as referrer, and the CloudFront
+    // domain shares that origin for API calls only.
+    const referer = `${primaryWebOrigin.replace(/\/+$/, '')}/*`;
     const locationApiKey = new location.CfnAPIKey(this, 'LocationApiKey', {
       keyName: `${this.stackName}-web-key`,
       noExpiry: true,
@@ -353,6 +396,101 @@ export class GridRiskStack extends Stack {
       },
     });
     locationApiKey.addDependency(locationMap);
+
+    // ---------------------------------------------------------------------
+    // Task 15: Hosting – private S3 bucket + CloudFront (OAC) for the SPA,
+    //          plus an /api/* behavior that proxies to the HTTP API (same-origin, no CORS).
+    // ---------------------------------------------------------------------
+    const webBucket = new s3.Bucket(this, 'WebBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      // Demo convenience: tear the bucket down with the stack.
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    // Viewer-request function: strip the leading "/api" prefix so the HTTP API (which has no
+    // stage path and routes like /events) receives the right path. The web app calls same-origin
+    // /api/events etc., so no CORS is needed.
+    const stripApiPrefixFn = new cloudfront.Function(this, 'StripApiPrefixFn', {
+      code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  if (request.uri.startsWith('/api/')) {
+    request.uri = request.uri.replace(/^\\/api/, '');
+  } else if (request.uri === '/api') {
+    request.uri = '/';
+  }
+  return request;
+}
+`),
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+    });
+
+    // HTTP API origin: HttpOrigin needs the bare host (no scheme, no path). apiEndpoint is
+    // https://<id>.execute-api.<region>.amazonaws.com.
+    const apiDomain = Fn.select(2, Fn.split('/', httpApi.apiEndpoint));
+    const apiOrigin = new origins.HttpOrigin(apiDomain, {
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+    });
+
+    const distribution = new cloudfront.Distribution(this, 'WebDistribution', {
+      defaultRootObject: 'index.html',
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(webBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+      },
+      additionalBehaviors: {
+        '/api/*': {
+          origin: apiOrigin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          // Forward everything except Host (HttpOrigin rewrites Host to the execute-api domain),
+          // which carries the Authorization header through to the API.
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          functionAssociations: [
+            {
+              function: stripApiPrefixFn,
+              eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+            },
+          ],
+        },
+      },
+      // SPA fallback: deep links / client-side routes resolve to index.html.
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: Duration.minutes(5),
+        },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: Duration.minutes(5),
+        },
+      ],
+      comment: `${this.stackName} web`,
+    });
+
+    // Upload the built SPA only if it exists at synth time, so synth/tests work without a web
+    // build. Deploy flow: build apps/web with VITE_* from SSM, then `cdk deploy`.
+    const webDist = path.join(REPO_ROOT, 'apps/web/dist');
+    if (fs.existsSync(webDist)) {
+      new s3deploy.BucketDeployment(this, 'WebDeployment', {
+        sources: [s3deploy.Source.asset(webDist)],
+        destinationBucket: webBucket,
+        distribution,
+        distributionPaths: ['/*'],
+      });
+    }
+
+    const webUrl = `https://${distribution.distributionDomainName}`;
 
     // ---------------------------------------------------------------------
     // Task 12: EventBridge Scheduler every 5 min -> ingest Lambda (least privilege)
@@ -410,6 +548,7 @@ export class GridRiskStack extends Stack {
       '/gridrisk/location-api-key-name': locationApiKey.keyName,
       '/gridrisk/route-calculator-name': routeCalculator.calculatorName!,
       '/gridrisk/location-map-name': mapName,
+      '/gridrisk/web-url': webUrl,
     };
     for (const [name, value] of Object.entries(ssmParams)) {
       new ssm.StringParameter(this, `Param${name.replace(/\W+/g, '')}`, {
@@ -422,6 +561,7 @@ export class GridRiskStack extends Stack {
     // Stack outputs (convenient for the curl demo)
     // ---------------------------------------------------------------------
     new CfnOutput(this, 'ApiUrl', { value: apiUrl });
+    new CfnOutput(this, 'WebUrl', { value: webUrl });
     new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
     new CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId });
     new CfnOutput(this, 'LocationApiKeyName', { value: locationApiKey.keyName });
