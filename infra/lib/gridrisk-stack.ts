@@ -476,6 +476,8 @@ function handler(event) {
     // deletion), so this one gets a fresh name.
     const locationApiKey = new location.CfnAPIKey(this, 'MapsApiKey', {
       keyName: `${this.stackName}-maps-key`,
+      // Location refuses restriction changes on a key used in the last 7 days unless forced.
+      forceUpdate: true,
       noExpiry: true,
       restrictions: {
         // Map tiles, plus Routes for the road-following evacuation route drawn after dispatch.
