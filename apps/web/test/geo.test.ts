@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { buildScenario } from '@gridrisk/engine';
+import { analyze, buildScenario } from '@gridrisk/engine';
 import { ROADS, SHELTERS, ZONES, ZONE_A } from '@gridrisk/shared/fixtures';
 import {
+  accessRoadsToGeoJSON,
+  circlePolygon,
   closedRoadsToGeoJSON,
+  evacuationRoutesToGeoJSON,
+  impactHeatToGeoJSON,
+  overviewBounds,
+  PALETTE,
+  pointAlong,
+  weatherCellsToGeoJSON,
+  zoneLabelAnchor,
+  zoneStatusesToGeoJSON,
   dronePathToGeoJSON,
   eventsToGeoJSON,
   gridToGeoJSON,
@@ -72,11 +82,125 @@ describe('map style', () => {
     expect(resolveMapStyle('')).toBe(OFFLINE_STYLE);
   });
 
-  it('uses the Amazon Location dark Monochrome style with a key', () => {
+  it('defaults to the light Standard style with hillshade and live traffic', () => {
     expect(resolveMapStyle('abc')).toBe(locationStyleUrl('abc'));
-    expect(locationStyleUrl('a b')).toBe(
-      'https://maps.geo.us-east-1.amazonaws.com/v2/styles/Monochrome/descriptor?key=a%20b&color-scheme=Dark',
+    const url = new URL(locationStyleUrl('a b'));
+    expect(url.origin + url.pathname).toBe(
+      'https://maps.geo.us-east-1.amazonaws.com/v2/styles/Standard/descriptor',
     );
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      key: 'a b',
+      'color-scheme': 'Light',
+      terrain: 'Hillshade',
+      'political-view': 'USA',
+      traffic: 'All',
+    });
+  });
+
+  it('satellite uses Hybrid (no color scheme), dark uses Standard Dark, traffic can be off', () => {
+    const sat = new URL(locationStyleUrl('k', { basemap: 'satellite' }));
+    expect(sat.pathname).toContain('/styles/Hybrid/');
+    expect(sat.searchParams.has('color-scheme')).toBe(false);
+    expect(sat.searchParams.get('traffic')).toBe('All');
+    const dark = new URL(locationStyleUrl('k', { basemap: 'dark', traffic: false }));
+    expect(dark.searchParams.get('color-scheme')).toBe('Dark');
+    expect(dark.searchParams.has('traffic')).toBe(false);
+  });
+
+  it('the offline style is light too', () => {
+    expect(OFFLINE_STYLE.layers[0]?.paint).toEqual({ 'background-color': '#eef2f6' });
+  });
+});
+
+describe('zoneStatusesToGeoJSON', () => {
+  const results = (name: Parameters<typeof buildScenario>[0]) =>
+    analyze(buildScenario(name), ZONES, { shelters: SHELTERS });
+
+  it('draws every zone: blue when calm', () => {
+    const fc = zoneStatusesToGeoJSON(ZONES, results('calm'));
+    expect(fc.features.map((f) => f.properties.status)).toEqual(['monitored', 'monitored']);
+    expect(fc.features[0]?.properties.color).toBe(PALETTE.monitored);
+  });
+
+  it('amber for power out, red for cut off', () => {
+    expect(
+      zoneStatusesToGeoJSON(ZONES, results('partial')).features.map((f) => f.properties.status),
+    ).toEqual(['outage', 'monitored']);
+    expect(
+      zoneStatusesToGeoJSON(ZONES, results('multi-zone')).features.map((f) => f.properties.color),
+    ).toEqual([PALETTE.isolated, PALETTE.isolated]);
+  });
+});
+
+describe('accessRoadsToGeoJSON', () => {
+  it('shows every access road, green when open and red when closed', () => {
+    const fc = accessRoadsToGeoJSON(ROADS, ZONES, ['road-bridge-1']);
+    expect(fc.features.map((f) => [f.properties.id, f.properties.status])).toEqual([
+      ['road-bridge-1', 'closed'],
+      ['road-zone-b-1', 'open'],
+    ]);
+    expect(fc.features[1]?.properties.color).toBe(PALETTE.roadOpen);
+  });
+});
+
+describe('weather and heat', () => {
+  it('turns weather events into closed circles, bigger for warnings', () => {
+    const fc = weatherCellsToGeoJSON(buildScenario('storm'));
+    expect(fc.features.length).toBe(4);
+    const ring = fc.features[0]!.geometry.coordinates[0]!;
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+    const span = (i: number) => {
+      const r = fc.features[i]!.geometry.coordinates[0]!.map((c) => c[1]);
+      return Math.max(...r) - Math.min(...r);
+    };
+    const low = fc.features.findIndex((f) => f.properties.severity === 'low');
+    const high = fc.features.findIndex((f) => f.properties.severity === 'high');
+    expect(span(high)).toBeGreaterThan(span(low));
+  });
+
+  it('weights non-weather events by severity for the heatmap', () => {
+    const fc = impactHeatToGeoJSON(buildScenario('escalation'));
+    expect(fc.features.every((f) => f.properties.weight > 0)).toBe(true);
+    expect(Math.max(...fc.features.map((f) => f.properties.weight))).toBe(1);
+  });
+
+  it('circlePolygon is about the right size (1 km ≈ 0.009° of latitude)', () => {
+    const lats = circlePolygon({ lat: 29.76, lon: -95.37 }, 1).coordinates[0]!.map((c) => c[1]);
+    expect(Math.max(...lats) - 29.76).toBeCloseTo(0.00904, 4);
+  });
+});
+
+describe('overviewBounds and pointAlong', () => {
+  it('contains every zone and the shelter', () => {
+    const [[w, s], [e, n]] = overviewBounds(ZONES, SHELTERS, 0);
+    expect(w).toBeLessThanOrEqual(SHELTERS[0]!.lon);
+    expect(s).toBeLessThanOrEqual(SHELTERS[0]!.lat);
+    expect(e).toBeGreaterThanOrEqual(-95.32);
+    expect(n).toBeGreaterThanOrEqual(29.77);
+  });
+
+  it('interpolates by distance along a polyline', () => {
+    const line: [number, number][] = [
+      [0, 0],
+      [2, 0],
+      [2, 2],
+    ];
+    expect(pointAlong(line, 0)).toEqual([0, 0]);
+    expect(pointAlong(line, 0.25)).toEqual([1, 0]);
+    expect(pointAlong(line, 0.75)).toEqual([2, 1]);
+    expect(pointAlong(line, 1)).toEqual([2, 2]);
+  });
+
+  it('zone labels sit on the north edge, centered', () => {
+    expect(zoneLabelAnchor(ZONE_A.polygon)).toEqual([-95.365, 29.77]);
+  });
+
+  it('evacuation routes start at the zone centroid and end at the shelter', () => {
+    const fc = evacuationRoutesToGeoJSON([{ zone: ZONE_A, shelter: SHELTERS[0]! }]);
+    expect(fc.features[0]?.geometry.coordinates).toEqual([
+      polygonCentroid(ZONE_A.polygon),
+      [SHELTERS[0]!.lon, SHELTERS[0]!.lat],
+    ]);
   });
 });
 

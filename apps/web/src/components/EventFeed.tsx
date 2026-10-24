@@ -22,6 +22,8 @@ export interface EventFeedProps {
   events: DemoEvent[];
   selectedEventId?: string | null;
   onSelect: (event: DemoEvent) => void;
+  /** Events that just arrived: highlighted with a NEW badge. */
+  newIds?: ReadonlySet<string>;
 }
 
 /** Newest first. Events without a timestamp go last; ties put the later-received event first. */
@@ -85,7 +87,7 @@ export function formatEventTime(timestamp: string | undefined): string {
   return Number.isNaN(ms) ? '--:--:--' : `${new Date(ms).toISOString().slice(11, 19)}Z`;
 }
 
-export function EventFeed({ events, selectedEventId, onSelect }: EventFeedProps) {
+export function EventFeed({ events, selectedEventId, onSelect, newIds }: EventFeedProps) {
   const reduceMotion = useReducedMotion();
   const sorted = sortEventsNewestFirst(events);
   const criticalCount = events.filter((e) => e.severity === 'critical').length;
@@ -122,6 +124,7 @@ export function EventFeed({ events, selectedEventId, onSelect }: EventFeedProps)
               const SeverityIcon = severity.icon;
               const TypeIcon = type.icon;
               const selected = event.id === selectedEventId;
+              const isNew = newIds?.has(event.id) ?? false;
               return (
                 <motion.li
                   key={event.id}
@@ -137,7 +140,7 @@ export function EventFeed({ events, selectedEventId, onSelect }: EventFeedProps)
                     onClick={() => onSelect(event)}
                     className={`relative block w-full px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-400 ${
                       selected ? 'bg-slate-800' : 'hover:bg-slate-800/50'
-                    } ${severity.className}`}
+                    } ${severity.className}${isNew ? ' feed-item--new' : ''}`}
                   >
                     {selected && (
                       <span
@@ -169,6 +172,11 @@ export function EventFeed({ events, selectedEventId, onSelect }: EventFeedProps)
                       >
                         {event.id}
                       </span>
+                      {isNew && (
+                        <span className="feed-new-badge shrink-0 rounded-sm bg-sky-400 px-1 py-px font-mono text-[10px] font-bold tracking-wider text-slate-900">
+                          NEW
+                        </span>
+                      )}
                       <time
                         dateTime={event.timestamp}
                         className="ml-auto shrink-0 font-mono text-[11px] text-slate-400 tabular-nums"
