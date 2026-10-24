@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { App } from '../src/App';
 import { parseDataMode, selectAdapter } from '../src/data/selectAdapter';
 
@@ -18,6 +18,14 @@ describe('App shell', () => {
     for (const name of ['Event feed', 'Map', 'Alerts']) {
       expect(screen.getByLabelText(name)).toBeTruthy();
     }
+  });
+
+  it('lists the calm events in the feed and selects one on click', () => {
+    render(<App />);
+    const item = screen.getByRole('button', { name: /tree down on elm st/i });
+    expect(screen.getAllByRole('button', { pressed: false })).toHaveLength(3);
+    fireEvent.click(item);
+    expect(item.getAttribute('aria-pressed')).toBe('true');
   });
 });
 
