@@ -30,7 +30,7 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
 
 ### M1
 
-- [ ] **Task 10: Core infrastructure and read API**
+- [x] **Task 10: Core infrastructure and read API** — _done: 4 DynamoDB tables (events w/ NEW_IMAGE stream, alerts, shelters, snapshots), Cognito pool + client, HTTP API with a JWT authorizer on every route, read/simulate Lambdas, Amazon Location key + route calculator + map, CORS, H6 values in SSM._
   - Objective: a deployed backend that serves events.
   - Guidance:
     - Build it in `GridRiskStack`.
@@ -54,7 +54,7 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
 
 ### M2
 
-- [ ] **Task 11: Human-approval workflow**
+- [x] **Task 11: Human-approval workflow** — _done: events stream -> debounced trigger -> state machine (RunAgent -> SaveAlert `.waitForTaskToken` 1h -> parallel Dispatch -> MarkDispatched); POST /alerts/{id}/approve wired with the authorizer and `states:SendTaskSuccess`._
   - Objective: an alert is created, waits for a human, and the dispatch is real.
   - Guidance:
     - **Trigger:** the `events` stream invokes a Lambda that starts the state machine once per zone (debounced: skip if a pending or dispatched alert already exists for the zone).
@@ -70,19 +70,43 @@ You own everything that runs in AWS, plus CI/CD, and you lead the M3 integration
     - **`POST /alerts/{id}/approve`:** the handler code and its tests (validate `actionIds`, `SendTaskSuccess`, 404/409) are **Saransh's**; you wire the route, the authorizer, IAM and where the task token is stored. Agree the alert-record shape with him first.
   - Tests: state machine definition assertions; the route has the authorizer.
   - Demo: `curl` simulate escalation, and a pending alert appears in `/alerts`. `curl` approve, the SNS email arrives, and the alert shows `dispatched`.
-- [ ] **Task 12 (infrastructure)**
+- [x] **Task 12 (infrastructure)** — _done: EventBridge Scheduler `rate(5 minutes)` invokes the ingest Lambda via a least-privilege role that can invoke only that function._
   - EventBridge Scheduler runs every 5 min and invokes the ingest Lambda (Tanisha's handler).
   - Use least-privilege IAM.
 
 ### M3
 
-- [ ] **Task 14** (with Saransh): replace the stub in `RunAgent` with the real agent.
-  - Grant `bedrock:InvokeModel` scoped to the single model.
-  - 30 s timeout.
-- [ ] **Task 15: Hosting and CI/CD**
-  - Amplify Hosting, or S3 + CloudFront with OAC.
-  - The Playwright e2e (mock mode) is **Saransh's**; review his CI job change since you own `.github/`.
-  - A deploy job on merge to `main`, using GitHub OIDC (no long-lived AWS keys).
+- [x] **Task 14** (with Saransh): replace the stub in `RunAgent` with the real agent. — _done._
+  - The RunAgent Lambda builds one `BedrockRuntimeClient` at module scope and calls
+    `runAgent({zoneId, events}, { bedrockClient, modelId: BEDROCK_MODEL_ID, logger })`; the logger
+    writes structured JSON via `console`. Output shape is unchanged.
+  - Default model id is now the cross-region inference profile `us.anthropic.claude-sonnet-4-6`
+    (override with env `BEDROCK_MODEL_ID`). With no model id the agent uses the template, so CI
+    stays offline.
+  - `bedrock:InvokeModel` is scoped to the inference-profile ARN in-region **plus** the underlying
+    foundation model `anthropic.claude-sonnet-4-6` in us-east-1 / us-east-2 / us-west-2 (the regions
+    the profile routes to). Nothing broader.
+  - 30 s Lambda timeout, 512 MB memory; the SFN RunAgent task timeout is 60 s (>= 30 s).
+- [x] **Task 15: Hosting and CI/CD** — _done: S3 + CloudFront with OAC._
+  - Private S3 bucket (BlockPublicAccess ALL, enforceSSL, autoDeleteObjects + DESTROY for the demo).
+  - CloudFront distribution: OAC S3 origin, `defaultRootObject index.html`, redirect-to-HTTPS, SPA
+    fallback (403/404 -> `/index.html` 200). A second `/api/*` behavior proxies to the HTTP API
+    (HttpOrigin on the execute-api domain, caching disabled, ALL methods,
+    `OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER` so Authorization is forwarded) with a
+    viewer-request CloudFront Function that strips the `/api` prefix — so the web app calls
+    same-origin `/api/*` and needs no CORS.
+  - `BucketDeployment` uploads `apps/web/dist` **only if it exists at synth time**, so synth/tests
+    run without a web build. Deploy flow: build web with `VITE_*` from SSM, then `cdk deploy`.
+  - Outputs `WebUrl` (`https://<distribution domain>`) and publishes `/gridrisk/web-url` to SSM.
+  - `infra/scripts/deploy.sh` (build web live-mode + deploy) and `infra/scripts/demo-user.ts`
+    (create/update the Cognito demo user via SDK, no aws CLI needed; the pool client already allows
+    USER_PASSWORD_AUTH). npm scripts: `deploy`, `demo-user`.
+  - `.github/workflows/deploy.yml` (OIDC) uses the same build-web-then-deploy flow; still a no-op
+    without `vars.AWS_DEPLOY_ROLE_ARN`.
+  - LocationApiKey: left its logical id and properties stable (single referrer derived from the
+    primary web origin, byte-for-byte identical for single-origin deploys) to avoid the
+    replacement that previously caused DELETE_FAILED. The CloudFront domain is not added to the key
+    referrers (it would only matter if tiles were loaded from that origin; API calls go same-origin).
 - [ ] **Task 16: Hardening** (all)
   - A hidden Shift+R reset that calls `/simulate/reset` or resets the mock store.
   - Check that it works offline: no Location key, no network, no Bedrock (**Tanisha**).

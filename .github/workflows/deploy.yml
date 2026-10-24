@@ -48,9 +48,28 @@ jobs:
       - name: CDK synth
         run: npm run synth -w @gridrisk/infra
 
-      - name: CDK deploy
+      - name: Read Cognito config from SSM
+        id: ssm
+        run: |
+          POOL_ID=$(node --import tsx infra/scripts/ssm-read.ts /gridrisk/cognito-user-pool-id || true)
+          CLIENT_ID=$(node --import tsx infra/scripts/ssm-read.ts /gridrisk/cognito-client-id || true)
+          echo "pool_id=${POOL_ID}" >> "$GITHUB_OUTPUT"
+          echo "client_id=${CLIENT_ID}" >> "$GITHUB_OUTPUT"
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Build web (live mode, same-origin /api)
+        run: npm run build -w @gridrisk/web
+        env:
+          VITE_DATA_MODE: live
+          VITE_API_URL: /api
+          VITE_AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+          VITE_COGNITO_USER_POOL_ID: ${{ steps.ssm.outputs.pool_id }}
+          VITE_COGNITO_CLIENT_ID: ${{ steps.ssm.outputs.client_id }}
+
+      - name: CDK deploy (build web, then deploy)
         env:
           WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
           DISPATCH_EMAIL: ${{ vars.DISPATCH_EMAIL }}
-        run: npx cdk deploy --require-approval never --app "npx tsx bin/app.ts"
+        run: npx cdk deploy GridRiskStack --require-approval never
         working-directory: infra
