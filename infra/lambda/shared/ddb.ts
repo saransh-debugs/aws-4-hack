@@ -18,3 +18,4 @@ export function requireEnv(name: string): string {
 
 export const EVENTS_TABLE = (): string => requireEnv('EVENTS_TABLE');
 export const ALERTS_TABLE = (): string => requireEnv('ALERTS_TABLE');
+export const HEALTH_TABLE = (): string => requireEnv('HEALTH_TABLE');

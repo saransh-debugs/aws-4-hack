@@ -1,5 +1,5 @@
 import type { DemoEvent } from '@gridrisk/shared';
-import type { Shelter } from '@gridrisk/shared';
+import type { Shelter, SourceHealth, SourceHealthStatus } from '@gridrisk/shared';
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 import {
   fetchCenterPointOutages,
@@ -72,6 +72,43 @@ function snapshotItemFor(
   };
 }
 
+function healthItemFor(health: SourceHealth): Record<string, { S: string }> {
+  return {
+    source: { S: health.source },
+    status: { S: health.status },
+    fetchedAt: { S: health.fetchedAt },
+    ...(health.lastSuccessAt ? { lastSuccessAt: { S: health.lastSuccessAt } } : {}),
+    recordCount: { S: String(health.recordCount) },
+    maxAgeMinutes: { S: String(health.maxAgeMinutes) },
+    ...(health.error ? { error: { S: health.error.slice(0, 500) } } : {}),
+  };
+}
+
+async function writeHealth(
+  source: string,
+  status: SourceHealthStatus,
+  recordCount: number,
+  deps: { tableName?: string; log?: (message: string, details?: unknown) => void },
+  error?: unknown,
+): Promise<void> {
+  if (!deps.tableName) return;
+  const now = new Date().toISOString();
+  const health: SourceHealth = {
+    source,
+    status,
+    fetchedAt: now,
+    recordCount,
+    maxAgeMinutes: Number(process.env.GRIDRISK_SNAPSHOT_MAX_AGE_MINUTES ?? 60),
+    ...(status === 'healthy' ? { lastSuccessAt: now } : {}),
+    ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
+  };
+  const client = new DynamoDBClient({});
+  await client.send(
+    new PutItemCommand({ TableName: deps.tableName, Item: healthItemFor(health) }),
+  );
+  deps.log?.(`Provider health ${source}: ${status}`, { recordCount });
+}
+
 /** Fetch NWS events and idempotently upsert them by their stable event id. */
 export async function ingestNwsEvents(deps: IngestDependencies): Promise<{ count: number }> {
   const fetchEvents = deps.fetchEvents ?? fetchNwsAlerts;
@@ -120,26 +157,39 @@ export async function handler(): Promise<{ count: number }> {
   const eventsTableName = process.env.GRIDRISK_EVENTS_TABLE ?? process.env.EVENTS_TABLE_NAME;
   const sheltersTableName = process.env.GRIDRISK_SHELTERS_TABLE;
   const snapshotsTableName = process.env.GRIDRISK_SNAPSHOTS_TABLE;
+  const healthTableName = process.env.GRIDRISK_HEALTH_TABLE;
   if (!eventsTableName) throw new Error('GRIDRISK_EVENTS_TABLE is required');
   const events: DemoEvent[] = [];
   try {
-    events.push(...(await fetchNwsAlerts()));
+    const nwsEvents = await fetchNwsAlerts();
+    events.push(...nwsEvents);
+    await writeHealth(
+      'nws',
+      nwsEvents.length > 0 ? 'healthy' : 'empty',
+      nwsEvents.length,
+      { tableName: healthTableName },
+    );
   } catch (error) {
     console.error('NWS ingest failed; retaining existing events.', error);
+    await writeHealth('nws', 'error', 0, { tableName: healthTableName }, error);
   }
   if (process.env.DRIVETEXAS_API_KEY) {
     try {
+      const before = events.length;
       events.push(...(await fetchDriveTexasConditions(process.env.DRIVETEXAS_API_KEY)));
+      await writeHealth('drivetexas', events.length - before > 0 ? 'healthy' : 'empty', events.length - before, { tableName: healthTableName });
     } catch (error) {
       console.error('DriveTexas ingest failed; retaining existing events.', error);
+      await writeHealth('drivetexas', 'error', 0, { tableName: healthTableName }, error);
     }
   }
   try {
-    events.push(
-      ...(await fetchCenterPointOutages(process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL || undefined)),
-    );
+    const before = events.length;
+    events.push(...(await fetchCenterPointOutages(process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL || undefined)));
+    await writeHealth('centerpoint', events.length - before > 0 ? 'healthy' : 'empty', events.length - before, { tableName: healthTableName });
   } catch (error) {
     console.error('CenterPoint outage ingest failed; retaining existing events.', error);
+    await writeHealth('centerpoint', 'error', 0, { tableName: healthTableName }, error);
   }
   if (process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY === 'true') {
     events.push(buildSyntheticUtilityOutage(process.env.GRIDRISK_SYNTHETIC_ZONE_ID ?? 'zone-a'));
@@ -157,6 +207,7 @@ export async function handler(): Promise<{ count: number }> {
       tableName: sheltersTableName,
       putItemCommand: (input) => new PutItemCommand(input),
     });
+    await writeHealth('fema-shelters', 'healthy', 0, { tableName: healthTableName });
   }
   if (snapshotsTableName) {
     try {

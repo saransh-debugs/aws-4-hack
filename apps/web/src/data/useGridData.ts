@@ -6,8 +6,14 @@ import { useAdapter } from './AdapterContext';
 export function useRefresh(): () => Promise<void> {
   const adapter = useAdapter();
   const setSnapshot = useGridStore((s) => s.setSnapshot);
+  const setHealth = useGridStore((s) => s.setHealth);
   return useCallback(async () => {
-    const [events, alerts] = await Promise.all([adapter.getEvents(), adapter.getAlerts()]);
+    const [events, alerts, health] = await Promise.all([
+      adapter.getEvents(),
+      adapter.getAlerts(),
+      adapter.getHealth?.() ?? Promise.resolve([]),
+    ]);
     setSnapshot({ events, alerts });
-  }, [adapter, setSnapshot]);
+    setHealth(health);
+  }, [adapter, setHealth, setSnapshot]);
 }

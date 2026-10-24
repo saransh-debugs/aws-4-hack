@@ -86,6 +86,13 @@ export class GridRiskStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
+    const healthTable = new dynamodb.Table(this, 'HealthTable', {
+      partitionKey: { name: 'source', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+
     const alertsTable = new dynamodb.Table(this, 'AlertsTable', {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -151,10 +158,12 @@ export class GridRiskStack extends Stack {
     // ---------------------------------------------------------------------
     const getEventsFn = mkFn('GetEventsFn', 'getEvents.ts');
     const getAlertsFn = mkFn('GetAlertsFn', 'getAlerts.ts');
+    const getHealthFn = mkFn('GetHealthFn', 'getHealth.ts', { HEALTH_TABLE: healthTable.tableName });
     const simulateFn = mkFn('SimulateFn', 'simulate.ts');
 
     eventsTable.grantReadData(getEventsFn);
     alertsTable.grantReadData(getAlertsFn);
+    healthTable.grantReadData(getHealthFn);
     // simulate rewrites events and clears alerts + debounce locks.
     eventsTable.grantReadWriteData(simulateFn);
     alertsTable.grantReadWriteData(simulateFn);
@@ -344,6 +353,11 @@ export class GridRiskStack extends Stack {
       integration: new HttpLambdaIntegration('GetAlertsIntegration', getAlertsFn),
     });
     httpApi.addRoutes({
+      path: '/health',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration('GetHealthIntegration', getHealthFn),
+    });
+    httpApi.addRoutes({
       path: '/alerts/{id}/approve',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('ApproveIntegration', approveFn),
@@ -503,6 +517,7 @@ function handler(event) {
         GRIDRISK_EVENTS_TABLE: eventsTable.tableName,
         GRIDRISK_SHELTERS_TABLE: sheltersTable.tableName,
         GRIDRISK_SNAPSHOTS_TABLE: snapshotsTable.tableName,
+        GRIDRISK_HEALTH_TABLE: healthTable.tableName,
         GRIDRISK_CENTERPOINT_OUTAGES_URL: process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL ?? '',
         DRIVETEXAS_API_KEY: process.env.DRIVETEXAS_API_KEY ?? '',
         GRIDRISK_ALLOW_SYNTHETIC_UTILITY: process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY ?? 'false',

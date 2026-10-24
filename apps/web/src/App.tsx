@@ -28,10 +28,12 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
   const refresh = useRefresh();
   const events = useGridStore((s) => s.events);
   const alerts = useGridStore((s) => s.alerts);
+  const health = useGridStore((s) => s.health);
   const mode = useGridStore((s) => s.mode);
   const selectedEventId = useGridStore((s) => s.selectedEventId);
   const selectEvent = useGridStore((s) => s.selectEvent);
   const [offline, setOffline] = useState(false);
+  const warningSources = health.filter((source) => source.status !== 'healthy');
 
   // Replaces the old refresh().catch TODO: surface fetch failures in a banner, clear on success.
   // A 401 in live mode clears the token and returns to the sign-in screen.
@@ -115,6 +117,16 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
           className="border-b border-amber-500/50 bg-amber-500/10 px-4 py-1.5 font-mono text-xs text-amber-200"
         >
           Offline — could not reach the data source. Retrying…
+        </p>
+      )}
+
+      {warningSources.length > 0 && (
+        <p
+          role="status"
+          className="border-b border-amber-500/50 bg-amber-500/10 px-4 py-1.5 font-mono text-xs text-amber-200"
+        >
+          Data warning — {warningSources.map((source) => `${source.source}: ${source.status}`).join('; ')}.
+          Verify provider status before acting.
         </p>
       )}
 

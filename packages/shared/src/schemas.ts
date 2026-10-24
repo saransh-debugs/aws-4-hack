@@ -44,6 +44,22 @@ export const DemoEventSchema = z.object({
 });
 export type DemoEvent = z.infer<typeof DemoEventSchema>;
 
+// ---------- Provider health ----------
+
+export const SourceHealthStatusSchema = z.enum(['healthy', 'stale', 'error', 'empty']);
+export type SourceHealthStatus = z.infer<typeof SourceHealthStatusSchema>;
+
+export const SourceHealthSchema = z.object({
+  source: z.string().min(1),
+  status: SourceHealthStatusSchema,
+  fetchedAt: z.iso.datetime(),
+  lastSuccessAt: z.iso.datetime().optional(),
+  recordCount: z.number().int().nonnegative(),
+  maxAgeMinutes: z.number().nonnegative(),
+  error: z.string().optional(),
+});
+export type SourceHealth = z.infer<typeof SourceHealthSchema>;
+
 // ---------- Geography ----------
 
 export const ZoneSchema = z.object({
@@ -168,6 +184,9 @@ export type ApproveResponse = z.infer<typeof ApproveResponseSchema>;
 export const SimulateResponseSchema = z.object({ events: z.array(DemoEventSchema) });
 export type SimulateResponse = z.infer<typeof SimulateResponseSchema>;
 
+export const GetHealthResponseSchema = z.object({ health: z.array(SourceHealthSchema) });
+export type GetHealthResponse = z.infer<typeof GetHealthResponseSchema>;
+
 export const ApiErrorSchema = z.object({
   error: z.object({
     code: z.enum([
@@ -189,6 +208,7 @@ export const API_ROUTES = {
   approveAlert: { method: 'POST', path: '/alerts/{id}/approve' },
   simulate: { method: 'POST', path: '/simulate/{scenario}' },
   reset: { method: 'POST', path: '/simulate/reset' },
+  getHealth: { method: 'GET', path: '/health' },
 } as const;
 export type ApiRouteName = keyof typeof API_ROUTES;
 

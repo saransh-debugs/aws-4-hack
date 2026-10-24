@@ -1,4 +1,10 @@
-import type { AlertCardData, ApiError, DemoEvent, ScenarioName } from '@gridrisk/shared';
+import type {
+  AlertCardData,
+  ApiError,
+  DemoEvent,
+  ScenarioName,
+  SourceHealth,
+} from '@gridrisk/shared';
 import { DataAdapterError } from './errors';
 
 /**
@@ -10,6 +16,8 @@ import { DataAdapterError } from './errors';
 export interface DataAdapter {
   getEvents(): Promise<DemoEvent[]>;
   getAlerts(): Promise<AlertCardData[]>;
+  /** Provider freshness and error status. Optional for backwards-compatible adapters. */
+  getHealth?(): Promise<SourceHealth[]>;
   /** Approve a subset of an alert's proposed actions. Resolves to the updated alert. */
   approve(alertId: string, actionIds: string[]): Promise<AlertCardData>;
   /** Inject a scenario's events. Resolves to the full current event list. */

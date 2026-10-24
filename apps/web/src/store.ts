@@ -1,15 +1,17 @@
 import { create } from 'zustand';
-import type { AlertCardData, DemoEvent } from '@gridrisk/shared';
+import type { AlertCardData, DemoEvent, SourceHealth } from '@gridrisk/shared';
 import type { DataMode } from './data/DataAdapter';
 import { parseDataMode } from './data/selectAdapter';
 
 export interface GridState {
   events: DemoEvent[];
   alerts: AlertCardData[];
+  health: SourceHealth[];
   /** Set by the feed and the map; the map flies to it. */
   selectedEventId: string | null;
   mode: DataMode;
   setSnapshot: (snapshot: { events: DemoEvent[]; alerts: AlertCardData[] }) => void;
+  setHealth: (health: SourceHealth[]) => void;
   selectEvent: (id: string | null) => void;
   setMode: (mode: DataMode) => void;
 }
@@ -17,6 +19,7 @@ export interface GridState {
 export const useGridStore = create<GridState>()((set) => ({
   events: [],
   alerts: [],
+  health: [],
   selectedEventId: null,
   mode: parseDataMode(import.meta.env.VITE_DATA_MODE),
   setSnapshot: ({ events, alerts }) =>
@@ -29,5 +32,6 @@ export const useGridStore = create<GridState>()((set) => ({
         : null,
     })),
   selectEvent: (id) => set({ selectedEventId: id }),
+  setHealth: (health) => set({ health }),
   setMode: (mode) => set({ mode }),
 }));

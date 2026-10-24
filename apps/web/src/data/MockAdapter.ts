@@ -1,4 +1,11 @@
-import type { AlertCardData, DemoEvent, ScenarioName, Shelter, Zone } from '@gridrisk/shared';
+import type {
+  AlertCardData,
+  DemoEvent,
+  ScenarioName,
+  Shelter,
+  SourceHealth,
+  Zone,
+} from '@gridrisk/shared';
 import { SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
 import { analyze, buildScenario } from '@gridrisk/engine';
 // Subpath on purpose: the package root pulls in the Bedrock SDK, which must not reach the browser.
@@ -35,6 +42,20 @@ export class MockAdapter implements DataAdapter {
 
   async getAlerts(): Promise<AlertCardData[]> {
     return structuredClone(this.alerts);
+  }
+
+  async getHealth(): Promise<SourceHealth[]> {
+    const now = this.now().toISOString();
+    return [
+      {
+        source: 'demo-scenario',
+        status: 'healthy',
+        fetchedAt: now,
+        lastSuccessAt: now,
+        recordCount: this.events.length,
+        maxAgeMinutes: 60,
+      },
+    ];
   }
 
   async approve(alertId: string, actionIds: string[]): Promise<AlertCardData> {
