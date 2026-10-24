@@ -1,50 +1,81 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Mock-mode happy path (Task 15): calm -> simulate -> alert -> approve -> dispatched.
+ * Task 15 – mock-mode demo loop (author: Saransh, reviewer: Darsh).
  *
- * This drives the UI by role/name, so it stays stable as styling changes. It depends on
- * Bushra's MockAdapter + components (H8, Tasks 2-5). Until those land, the UI is still the
- * M0 shell and these interactions won't exist, so the whole file is skipped by default.
+ *   calm -> Simulate -> alert appears -> check actions -> Approve -> DISPATCHED -> Reset
  *
- * Flip the gate by setting E2E_UI_READY=1 (locally or as a CI variable) once the UI is wired.
- * The selectors below are the contract the UI should satisfy; adjust names with Bushra if needed.
+ * Runs against `VITE_DATA_MODE=mock` (see ../playwright.config.ts): no AWS, no network.
+ * Selectors use roles and accessible names only, never CSS classes.
+ *
+ * The UI contract this file relies on (Bushra, keep these names or tell Saransh):
+ *   - h1 "GridRisk • LIVE FEED • SYNTHETIC DATA"
+ *   - <aside aria-label="Event feed"> with a list "Events, newest first" (Task 4)
+ *   - <aside aria-label="Alerts">
+ *   - dev toolbar buttons "Simulate" and "Reset" (Task 2)
+ *   - each alert is an <article> named by its title, e.g. "ZONE A ISOLATED: ACTION REQUIRED",
+ *     with a status text ("pending" / "DISPATCHED"), one checkbox per action and an
+ *     "Approve" button (Task 5)
+ *
+ * The smoke test runs on every PR. The full loop needs Task 2 (MockAdapter + toolbar) and
+ * Task 5 (AlertCard), so it is gated on E2E_UI_READY=1 (the CI job reads the repo variable
+ * `vars.E2E_UI_READY`). Flip the variable once AlertCard is on main; no code change needed.
  */
 const UI_READY = process.env.E2E_UI_READY === '1';
 
-test.describe('mock-mode happy path', () => {
-  test.skip(!UI_READY, 'Web UI (H8 MockAdapter + components) not wired yet — see Tasks 2-5.');
+const CALM_EVENT_COUNT = 3;
 
-  test('calm -> simulate escalation -> approve -> dispatched', async ({ page }) => {
+const eventItems = (page: Page) =>
+  page.getByRole('list', { name: /events, newest first/i }).getByRole('button');
+const alertsPanel = (page: Page) => page.getByRole('complementary', { name: /^alerts$/i });
+const zoneAAlert = (page: Page) => page.getByRole('article', { name: /zone a isolated/i });
+
+test('smoke: the calm baseline renders offline', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { level: 1, name: /gridrisk/i })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: /event feed/i })).toBeVisible();
+  await expect(eventItems(page)).toHaveCount(CALM_EVENT_COUNT);
+  await expect(alertsPanel(page)).toBeVisible();
+  await expect(page.getByRole('article', { name: /isolated/i })).toHaveCount(0);
+});
+
+test.describe('demo loop', () => {
+  test.skip(!UI_READY, 'Needs Task 2 (MockAdapter + toolbar) and Task 5 (AlertCard) on main.');
+
+  test('calm -> simulate -> approve -> dispatched -> reset', async ({ page }) => {
     await page.goto('/');
+    await expect(eventItems(page)).toHaveCount(CALM_EVENT_COUNT);
+    await expect(zoneAAlert(page)).toHaveCount(0);
 
-    // 1. Calm baseline: no active alert card.
-    await expect(page.getByRole('heading', { name: /grid ?risk/i })).toBeVisible();
-    await expect(page.getByRole('region', { name: /alerts/i })).toBeVisible();
-    await expect(page.getByRole('article', { name: /isolated/i })).toHaveCount(0);
-
-    // 2. Simulate the escalation scenario (dev toolbar button).
-    await page.getByRole('button', { name: /simulate escalation/i }).click();
-
-    // 3. A pending alert appears.
-    const alert = page.getByRole('article', { name: /zone a isolated/i });
+    // Simulate: the escalation events arrive and one pending alert appears.
+    await page.getByRole('button', { name: /^simulate$/i }).click();
+    await expect.poll(() => eventItems(page).count()).toBeGreaterThan(CALM_EVENT_COUNT);
+    const alert = zoneAAlert(page);
     await expect(alert).toBeVisible();
     await expect(alert.getByText(/pending/i)).toBeVisible();
 
-    // 4. Approve: select at least one action, then approve.
-    await alert.getByRole('checkbox').first().check();
+    // Check the actions, then approve.
+    const actions = alert.getByRole('checkbox');
+    expect(await actions.count()).toBeGreaterThan(0);
+    for (const box of await actions.all()) await box.check();
     await alert.getByRole('button', { name: /approve/i }).click();
 
-    // 5. The alert flips to dispatched.
-    await expect(alert.getByText(/dispatched/i)).toBeVisible();
+    // Dispatched: the alert flips and can't be approved again.
+    await expect(alert.getByText(/dispatched/i).first()).toBeVisible();
+    await expect(alert.getByRole('button', { name: /^approve$/i })).toHaveCount(0);
+
+    // Reset: back to the calm baseline.
+    await page.getByRole('button', { name: /^reset$/i }).click();
+    await expect(eventItems(page)).toHaveCount(CALM_EVENT_COUNT);
+    await expect(page.getByRole('article', { name: /isolated/i })).toHaveCount(0);
   });
 
-  test('hidden Shift+R reset returns to the calm baseline', async ({ page }) => {
+  // Task 16 (hidden Shift+R reset). Un-fixme when it lands.
+  test.fixme('hidden Shift+R reset returns to the calm baseline', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: /simulate escalation/i }).click();
-    await expect(page.getByRole('article', { name: /zone a isolated/i })).toBeVisible();
-
-    // Task 16: hidden Shift+R reset.
+    await page.getByRole('button', { name: /^simulate$/i }).click();
+    await expect(zoneAAlert(page)).toBeVisible();
     await page.keyboard.press('Shift+R');
     await expect(page.getByRole('article', { name: /isolated/i })).toHaveCount(0);
   });
