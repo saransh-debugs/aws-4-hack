@@ -4,7 +4,8 @@ GridRisk links separate emergency feeds (power outages, flooded roads) into a si
 risk, works out how much time is left, and proposes actions that **a human approves** before
 anything is dispatched. Built on AWS: Amazon Location, Bedrock, Step Functions and SNS.
 
-> Status: **M0 bootstrap**. Contracts, fixtures and stubs are in place, and every track can start now.
+> Status: **Prototype integration**. The backend, agent, scheduled data ingest, provider adapters, and
+> offline snapshots are implemented. The web map and live-provider validation still need follow-through.
 
 ## Quickstart
 
@@ -32,13 +33,13 @@ engine readiness checklist are in [docs/DATA.md](docs/DATA.md).
 
 ## Workspace map
 
-| Path              | Package            | Owner    | M0 state                                     |
-| ----------------- | ------------------ | -------- | -------------------------------------------- |
-| `packages/shared` | `@gridrisk/shared` | everyone | **Real** zod contracts + Houston fixtures    |
-| `packages/engine` | `@gridrisk/engine` | Tanisha  | `buildScenario` + `analyze` stubs            |
-| `packages/agent`  | `@gridrisk/agent`  | all four | `runAgent` stub + **real** template fallback |
-| `apps/web`        | `@gridrisk/web`    | Bushra   | Dark shell + `DataAdapter` interface         |
-| `infra`           | `@gridrisk/infra`  | Darsh    | Empty CDK stack (nothing deployed)           |
+| Path              | Package            | Owner    | M0 state                                                                    |
+| ----------------- | ------------------ | -------- | --------------------------------------------------------------------------- |
+| `packages/shared` | `@gridrisk/shared` | everyone | **Real** zod contracts + Houston fixtures                                   |
+| `packages/engine` | `@gridrisk/engine` | Tanisha  | Deterministic engine, provider adapters, snapshots, and ingest              |
+| `packages/agent`  | `@gridrisk/agent`  | all four | `runAgent` stub + **real** template fallback                                |
+| `apps/web`        | `@gridrisk/web`    | Bushra   | Dark shell + event feed; map and alert UI remain TODO                       |
+| `infra`           | `@gridrisk/infra`  | Darsh    | Deployable API, approval workflow, Location resources, and scheduled ingest |
 
 Packages export TypeScript source directly (`"exports": "./src/index.ts"`), so there is no build
 step between workspaces.
@@ -52,7 +53,8 @@ step between workspaces.
 
 ## Backend runbook (infra, owner: Darsh)
 
-The backend is AWS CDK (`infra/`, stack `GridRiskStack`). It deploys 2 DynamoDB tables, a
+The backend is AWS CDK (`infra/`, stack `GridRiskStack`). It deploys events, alerts, shelters, and
+snapshots DynamoDB tables, a
 Cognito user pool, an HTTP API with a JWT authorizer on every route, the read/simulate/approve
 Lambdas, a Step Functions human-approval workflow, an SNS dispatch topic, an Amazon Location key
 
@@ -130,6 +132,14 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "content-type: application/
 # Back to calm
 curl -s -X POST -H "Authorization: Bearer $TOKEN" "$API/simulate/reset" | jq '.events | length'
 ```
+
+### Map status
+
+The CDK stack provisions an Amazon Location map, a referrer-restricted API key, and a route calculator.
+The frontend does not consume those resources yet: `apps/web/src/App.tsx` still renders the
+`MapComponent (Task 3)` placeholder, and event selection does not fly the map to an event. Until Task 3
+is implemented, the app remains a dashboard shell with an event feed. The intended fallback is the
+bundled offline dark style when `VITE_LOCATION_API_KEY` is empty.
 
 ### Mock / offline mode
 
