@@ -21,19 +21,6 @@ import { createStubModel } from '../scripts/stub-model';
 
 const NOW = new Date('2026-10-23T14:15:00.000Z');
 
-// TODO(Tanisha): switch to buildScenario('partial' | 'reopened') once the engine adds them.
-/** Outage only, but the bridge is still open: not isolated. */
-const partialEvents = (): DemoEvent[] =>
-  buildScenario('escalation').filter((e) => e.type !== 'road_closure');
-
-/** Escalation, but the bridge closure has since been downgraded to a low-severity reopening. */
-const reopenedEvents = (): DemoEvent[] =>
-  buildScenario('escalation').map((e) =>
-    e.id === 'evt-closure-bridge'
-      ? { ...e, severity: 'low', description: 'Buffalo Bayou access bridge reopened' }
-      : e,
-  );
-
 function evals(label: string, makeClient: () => ConverseClient, modelId: string) {
   const deps = () => ({ bedrockClient: makeClient(), modelId, now: () => NOW });
   const run = (events: DemoEvent[]) => runAgent({ zoneId: ZONE_A.id, events }, deps());
@@ -44,11 +31,11 @@ function evals(label: string, makeClient: () => ConverseClient, modelId: string)
     });
 
     it('partial (bridge open) -> null', async () => {
-      expect(await run(partialEvents())).toBeNull();
+      expect(await run(buildScenario('partial'))).toBeNull();
     });
 
     it('reopened bridge -> null', async () => {
-      expect(await run(reopenedEvents())).toBeNull();
+      expect(await run(buildScenario('reopened'))).toBeNull();
     });
 
     it('escalation -> grounded alert with a tool trace', async () => {

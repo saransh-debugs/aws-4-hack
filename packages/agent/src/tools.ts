@@ -1,14 +1,18 @@
 /**
- * A1 – Tool registry (owner: Tanisha). A0 STUB: signatures are frozen, bodies are not.
+ * A1 – Tool registry (owner: Tanisha).
  *
  * Each tool wraps a deterministic @gridrisk/engine function. The model can only *read* via
  * these tools and *propose* via submit_alert – it never dispatches anything (a human
  * approves through Step Functions).
  *
- * Output shapes the stub returns (and that scripts/stub-model.ts reads):
+ * One zod input schema per tool: the same schema generates the Bedrock JSON spec
+ * (`z.toJSONSchema`, minus the `$schema` key) and validates the model's input in
+ * `executeTool`, so the model can never pass a number into the engine.
+ *
+ * Output shapes:
  *   get_active_events        -> { events: DemoEvent[] }
  *   correlate_zone           -> ZoneCorrelation
- *   check_isolation          -> IsolationResult
+ *   check_isolation          -> IsolationResult (over the zone's correlated closures)
  *   get_dependent_patients   -> { zoneId, dependentPatients }
  *   find_shelters            -> { shelters: Shelter[] }
  *   compute_isolation_window -> { avgBackupMinutes, estimatedResponseMinutes, isolationWindowMinutes }
@@ -46,14 +50,37 @@ export interface ToolContext {
 export type ToolExecution =
   { ok: true; output: Record<string, unknown> } | { ok: false; error: string };
 
+// ---------- One zod input schema per tool ----------
+
+const zoneIdField = z.string().describe('Zone id, e.g. "zone-a"');
+
+/** Most investigation tools take just the zone id. */
+const ZoneInput = z.object({ zoneId: zoneIdField });
+
+/** get_active_events may list every active event, or narrow to one zone. */
+const ActiveEventsInput = z.object({ zoneId: zoneIdField.optional() });
+
+/**
+ * compute_isolation_window takes NO numbers from the model – the window is derived from
+ * `ctx.config` alone. It still accepts the zone id so the model's call shape is uniform.
+ */
+const IsolationWindowInput = z.object({ zoneId: zoneIdField });
+
+/** Input schema used both for the Bedrock spec and for runtime validation, per tool. */
+const INPUT_SCHEMAS: Record<Exclude<ToolName, 'submit_alert'>, z.ZodType> = {
+  get_active_events: ActiveEventsInput,
+  correlate_zone: ZoneInput,
+  check_isolation: ZoneInput,
+  get_dependent_patients: ZoneInput,
+  find_shelters: ZoneInput,
+  compute_isolation_window: IsolationWindowInput,
+};
+
 /** JSON schema for Bedrock, without the `$schema` key (Bedrock rejects it). */
 function toInputSchema(schema: z.ZodType): ToolSpecification['inputSchema'] {
   const { $schema: _ignored, ...json } = z.toJSONSchema(schema) as Record<string, unknown>;
   return { json: json as Record<string, never> };
 }
-
-// TODO(Tanisha): one zod input schema per tool; reuse them in executeTool for validation.
-const ZoneInput = z.object({ zoneId: z.string().describe('Zone id, e.g. "zone-a"') });
 
 const DESCRIPTIONS: Record<ToolName, string> = {
   get_active_events:
@@ -71,28 +98,23 @@ const DESCRIPTIONS: Record<ToolName, string> = {
 export const TOOL_SPECS: ToolSpecification[] = TOOL_NAMES.map((name) => ({
   name,
   description: DESCRIPTIONS[name],
-  inputSchema: toInputSchema(
-    name === 'submit_alert'
-      ? SubmitAlertSchema
-      : name === 'get_active_events'
-        ? ZoneInput.partial()
-        : ZoneInput,
-  ),
+  inputSchema: toInputSchema(name === 'submit_alert' ? SubmitAlertSchema : INPUT_SCHEMAS[name]),
 }));
 
 /**
  * Run one tool. Never throws: unknown tools, unknown zones and bad input return `{ ok: false }`.
  *
  * Answers come from the deterministic engine run over `ctx`, so the model sees the same numbers
- * the grounding check uses. TODO(Tanisha): one zod input schema per tool.
+ * the grounding check uses.
  */
 export function executeTool(name: string, input: unknown, ctx: ToolContext): ToolExecution {
   if (!isToolName(name) || name === 'submit_alert') {
     return { ok: false, error: `Unknown tool: ${name}` };
   }
-  const parsed = (name === 'get_active_events' ? ZoneInput.partial() : ZoneInput).safeParse(input);
+
+  const parsed = INPUT_SCHEMAS[name].safeParse(input);
   if (!parsed.success) return { ok: false, error: z.prettifyError(parsed.error) };
-  const zoneId = parsed.data.zoneId;
+  const { zoneId } = parsed.data as { zoneId?: string };
   if (zoneId !== undefined && !ctx.zones.some((z) => z.id === zoneId)) {
     return { ok: false, error: `Unknown zone: ${zoneId}` };
   }
@@ -132,6 +154,7 @@ export function executeTool(name: string, input: unknown, ctx: ToolContext): Too
         },
       };
     case 'check_isolation':
+      // Uses the closure events `correlate` found for this zone (via `analyze`).
       return {
         ok: true,
         output: { isolated: r.isolated, closedAccessRoadIds: r.closedAccessRoadIds },
@@ -144,6 +167,7 @@ export function executeTool(name: string, input: unknown, ctx: ToolContext): Too
         output: { shelters: ctx.shelters.filter((s) => r.candidateShelterIds.includes(s.id)) },
       };
     case 'compute_isolation_window':
+      // No numbers come from the model; the window is derived from ctx.config only.
       return {
         ok: true,
         output: {

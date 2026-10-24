@@ -1,13 +1,14 @@
 /**
  * A2 – Turn Claude's narrow submission into an AlertCardData (owner: Bushra).
- * Every id and number comes from the EngineResult; only title and points come from Claude.
  *
- * A0 STUB: reuses the template for ids/numbers. TODO(Bushra): build it directly.
+ * The model contributes only `title`, `points` and `actionTypes`. Every id, number, status
+ * and related-event id is filled in here from the EngineResult – the model's text is never
+ * the source of any structured value. ./validate then rejects any number in the text that the
+ * engine did not produce. SDK-free.
  */
 import type { AlertCardData, EngineResult, Shelter, ToolTraceEntry, Zone } from '@gridrisk/shared';
 import { buildProposedActions } from './actions';
 import type { SubmitAlertInput } from './submit';
-import { buildTemplateAlert } from './template';
 
 export interface AssembleOptions {
   zone: Zone;
@@ -22,16 +23,23 @@ export function assembleAlert(
   result: EngineResult,
   opts: AssembleOptions,
 ): AlertCardData {
-  const base = buildTemplateAlert(result, opts);
+  const { zone, shelters } = opts;
+  const now = opts.now ?? new Date();
+
   return {
-    ...base,
+    id: opts.id ?? `alert-${zone.id}-${now.getTime()}`,
+    zoneId: zone.id,
     title: sub.title,
     points: sub.points,
-    proposedActions: buildProposedActions(sub.actionTypes, {
-      zone: opts.zone,
-      shelters: opts.shelters,
-      result,
-    }),
+    isolationWindowMinutes: result.isolationWindowMinutes,
+    proposedActions: buildProposedActions(sub.actionTypes, { zone, shelters, result }),
+    relatedEventIds: [
+      ...result.outageEventIds,
+      ...result.closureEventIds,
+      ...result.emergencyEventIds,
+    ],
+    status: 'pending',
+    createdAt: now.toISOString(),
     ...(opts.toolTrace ? { toolTrace: opts.toolTrace } : {}),
   };
 }

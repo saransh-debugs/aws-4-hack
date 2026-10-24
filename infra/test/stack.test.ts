@@ -65,11 +65,11 @@ describe('GridRiskStack', () => {
     }
   });
 
-  it('Task 10: CORS allows only the configured web origin', () => {
+  it('Task 10: CORS allows the configured web origin plus localhost dev', () => {
     const { template } = synth();
     template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
       CorsConfiguration: Match.objectLike({
-        AllowOrigins: ['https://app.example.com'],
+        AllowOrigins: ['http://localhost:5173', 'https://app.example.com'],
       }),
     });
   });
@@ -138,15 +138,90 @@ describe('GridRiskStack', () => {
     });
   });
 
-  it('Task 14: RunAgent is granted bedrock:InvokeModel and a 30s timeout', () => {
+  it('Task 14: RunAgent has the default model env, a 30s timeout and 512 MB memory', () => {
     const { template } = synth();
-    // A function with a 30s timeout exists (RunAgent).
-    template.hasResourceProperties('AWS::Lambda::Function', { Timeout: 30 });
-    // An IAM policy grants bedrock:InvokeModel.
-    template.hasResourceProperties('AWS::IAM::Policy', {
-      PolicyDocument: Match.objectLike({
-        Statement: Match.arrayWith([Match.objectLike({ Action: 'bedrock:InvokeModel' })]),
+    // Default cross-region inference profile, 30 s timeout, 512 MB.
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Timeout: 30,
+      MemorySize: 512,
+      Environment: Match.objectLike({
+        Variables: Match.objectLike({ BEDROCK_MODEL_ID: 'us.anthropic.claude-sonnet-4-6' }),
       }),
     });
+  });
+
+  it('Task 14: RunAgent IAM policy grants bedrock:InvokeModel on exactly the scoped ARNs', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'bedrock:InvokeModel',
+            Effect: 'Allow',
+            Resource: [
+              'arn:aws:bedrock:us-east-1:111111111111:inference-profile/us.anthropic.claude-sonnet-4-6',
+              'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6',
+              'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-6',
+              'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-6',
+            ],
+          }),
+        ]),
+      }),
+    });
+  });
+
+  it('Task 15: a private S3 web bucket blocks all public access', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      PublicAccessBlockConfiguration: {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: true,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: true,
+      },
+    });
+  });
+
+  it('Task 15: a CloudFront distribution uses OAC and has an /api/* behavior', () => {
+    const { template } = synth();
+    template.resourceCountIs('AWS::CloudFront::Distribution', 1);
+    // Origin Access Control resource exists.
+    template.resourceCountIs('AWS::CloudFront::OriginAccessControl', 1);
+
+    const dists = template.findResources('AWS::CloudFront::Distribution');
+    const config = (
+      Object.values(dists)[0]?.Properties as {
+        DistributionConfig: {
+          DefaultRootObject: string;
+          DefaultCacheBehavior: { ViewerProtocolPolicy: string };
+          CacheBehaviors?: Array<{ PathPattern: string }>;
+          CustomErrorResponses?: Array<{ ErrorCode: number; ResponseCode: number }>;
+        };
+      }
+    ).DistributionConfig;
+
+    expect(config.DefaultRootObject).toBe('index.html');
+    expect(config.DefaultCacheBehavior.ViewerProtocolPolicy).toBe('redirect-to-https');
+    const patterns = (config.CacheBehaviors ?? []).map((b) => b.PathPattern);
+    expect(patterns).toContain('/api/*');
+    // SPA fallback: 403 and 404 -> 200 /index.html.
+    const errorCodes = (config.CustomErrorResponses ?? []).map((e) => e.ErrorCode).sort();
+    expect(errorCodes).toEqual([403, 404]);
+  });
+
+  it('Task 15: a CloudFront Function strips the /api prefix on viewer-request', () => {
+    const { template } = synth();
+    template.resourceCountIs('AWS::CloudFront::Function', 1);
+    const fns = template.findResources('AWS::CloudFront::Function');
+    const code = (Object.values(fns)[0]?.Properties as { FunctionCode: string }).FunctionCode;
+    expect(code).toContain('/api');
+  });
+
+  it('Task 15: the stack outputs WebUrl and publishes /gridrisk/web-url to SSM', () => {
+    const { template } = synth();
+    template.hasOutput('WebUrl', {});
+    const params = template.findResources('AWS::SSM::Parameter');
+    const names = Object.values(params).map((p) => (p.Properties as { Name: string }).Name);
+    expect(names).toContain('/gridrisk/web-url');
   });
 });

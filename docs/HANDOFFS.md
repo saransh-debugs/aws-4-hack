@@ -14,17 +14,17 @@ When the real implementation lands, the stub is replaced behind the same signatu
 
 ## Board
 
-| ID  | Deliverable                                             | From → To                        | M0 stub        | Real by | Status                             |
-| --- | ------------------------------------------------------- | -------------------------------- | -------------- | ------- | ---------------------------------- |
-| H1  | Shared contracts + fixtures (`@gridrisk/shared`)        | Bootstrap → All                  | real           | M0      | ✅ done                            |
-| H2  | `buildScenario(name)` calm / escalation / reset         | Tanisha → Bushra, Darsh          | yes            | M1      | ✅ real + variants                 |
-| H3  | Engine `analyze()` + tool functions                     | Tanisha → Saransh                | yes            | M1      | ✅ deterministic geospatial engine |
-| H4  | `snapshots/*.json` + NWS normalizer                     | Tanisha → Darsh (ingest), Bushra | fixture        | M1      | ✅ NWS + emPOWER snapshots         |
-| H5  | `runAgent(input)`                                       | Saransh → Darsh                  | yes (template) | M2      | 🟡 stub delivered                  |
-| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | 🟢 code-complete                   |
-| H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | 🟢 code-complete                   |
-| H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | 🟡 interface only                  |
-| H9  | Agent `toolTrace` format on alert                       | Saransh → Bushra                 | fixture        | M2      | 🟡 schema only                     |
+| ID  | Deliverable                                             | From → To                        | M0 stub        | Real by | Status                              |
+| --- | ------------------------------------------------------- | -------------------------------- | -------------- | ------- | ----------------------------------- |
+| H1  | Shared contracts + fixtures (`@gridrisk/shared`)        | Bootstrap → All                  | real           | M0      | ✅ done                             |
+| H2  | `buildScenario(name)` calm / escalation / reset         | Tanisha → Bushra, Darsh          | yes            | M1      | ✅ real + variants                  |
+| H3  | Engine `analyze()` + tool functions                     | Tanisha → Saransh                | yes            | M1      | ✅ deterministic geospatial engine  |
+| H4  | `snapshots/*.json` + NWS normalizer                     | Tanisha → Darsh (ingest), Bushra | fixture        | M1      | ✅ NWS + emPOWER snapshots          |
+| H5  | `runAgent(input)`                                       | Saransh → Darsh                  | yes (template) | M2      | ✅ Bedrock loop + template fallback |
+| H6  | `.env` values: API URL, Cognito IDs, Location key (SSM) | Darsh → Bushra                   | placeholders   | M1      | 🟢 code-complete                    |
+| H7  | Approve endpoint + Step Functions                       | Darsh → Bushra                   | MSW mock       | M2      | 🟢 code-complete                    |
+| H8  | `MockAdapter` + `DataAdapter`                           | Bushra → Darsh (e2e)             | interface      | M1      | 🟡 interface only                   |
+| H9  | Agent `toolTrace` format on alert                       | Saransh → Bushra                 | fixture        | M2      | ✅ populated on model-path alerts   |
 
 Status key: ⬜ not started · 🟡 stub or partial · 🟢 code-complete (CDK merged, not yet deployed) · ✅ real and merged
 
@@ -48,7 +48,7 @@ interfaces between slices are in [todo/saransh-agent.md](../todo/saransh-agent.m
 | H2  | `import { buildScenario } from '@gridrisk/engine'`                                       |
 | H3  | `import { analyze, correlate, checkIsolation, … } from '@gridrisk/engine'`               |
 | H4  | `ESCALATION_ENGINE_RESULT` / `ZONE_A` fixtures until `packages/engine/snapshots/` exists |
-| H5  | `import { runAgent } from '@gridrisk/agent'` (deterministic template)                    |
+| H5  | `import { runAgent } from '@gridrisk/agent'` (Bedrock Converse loop, template fallback)  |
 | H6  | `.env.example`                                                                           |
 | H7  | MSW handlers Bushra writes from [CONTRACTS.md](CONTRACTS.md#http-api)                    |
 | H8  | `apps/web/src/data/DataAdapter.ts`                                                       |

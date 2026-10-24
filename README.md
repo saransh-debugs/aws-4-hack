@@ -62,13 +62,13 @@ Lambdas, a Step Functions human-approval workflow, an SNS dispatch topic, an Ama
 
 ### Env vars
 
-| Var                | Used by     | Notes                                                          |
-| ------------------ | ----------- | -------------------------------------------------------------- |
-| `AWS_REGION`       | deploy, SDK | Defaults to `us-east-1`.                                       |
-| `BEDROCK_MODEL_ID` | RunAgent    | Claude model id / inference profile (Task 14).                 |
-| `WEB_ORIGIN`       | deploy      | CORS origin + Location key referrer. Default `localhost:5173`. |
-| `DISPATCH_EMAIL`   | deploy      | Optional; subscribes an email to the dispatch SNS topic.       |
-| `VITE_*`           | web app     | Filled from SSM after deploy — see `.env.example`.             |
+| Var                | Used by     | Notes                                                                                                 |
+| ------------------ | ----------- | ----------------------------------------------------------------------------------------------------- |
+| `AWS_REGION`       | deploy, SDK | Defaults to `us-east-1`.                                                                              |
+| `BEDROCK_MODEL_ID` | RunAgent    | Claude model id / inference profile. Default `us.anthropic.claude-sonnet-4-6` (cross-region profile). |
+| `WEB_ORIGIN`       | deploy      | CORS origin + Location key referrer. Default `localhost:5173`.                                        |
+| `DISPATCH_EMAIL`   | deploy      | Optional; subscribes an email to the dispatch SNS topic.                                              |
+| `VITE_*`           | web app     | Filled from SSM after deploy — see `.env.example`.                                                    |
 
 Local AWS creds go in `.env` (gitignored). Never commit real credentials.
 
@@ -85,25 +85,50 @@ npm run synth -w @gridrisk/infra # cdk synth — must be clean
 > need an IAM principal allowed to create IAM roles (`iam:CreateRole`, `iam:PassRole`, …). The
 > workshop `WSParticipantRole` is **not** allowed to, so deploy from a role/account that is.
 
+The web app is hosted on **S3 + CloudFront (OAC)** and calls the API same-origin under `/api/*`
+(a CloudFront `/api/*` behavior proxies to the HTTP API and a CloudFront Function strips the
+`/api` prefix), so no CORS is needed in the browser. `scripts/deploy.sh` builds the web app in
+live mode against the deployed backend, then runs `cdk deploy`:
+
 ```bash
 cd infra
 WEB_ORIGIN=https://your-web-origin DISPATCH_EMAIL=you@example.com \
-  npx cdk deploy --require-approval never
+  npm run deploy        # builds apps/web (VITE_* read from SSM), then cdk deploy GridRiskStack
+```
+
+First-ever deploy ordering: the Cognito pool/client don't exist until the stack is deployed once,
+so the first web build has empty `VITE_COGNITO_*`. Re-run `npm run deploy` after the first deploy
+(or just rebuild the web app and `cdk deploy` again) so the bundle picks up the real pool id. The
+`BucketDeployment` only uploads `apps/web/dist` when it exists, so `cdk synth`/tests work without a
+web build.
+
+The deployed site URL is published as the `WebUrl` stack output and the `/gridrisk/web-url` SSM
+parameter:
+
+```bash
+WEB_URL=$(node --import tsx infra/scripts/ssm-read.ts /gridrisk/web-url)
+echo "$WEB_URL"   # https://<distribution domain>.cloudfront.net
 ```
 
 Never run `cdk deploy` against a shared or production account without telling the team.
 
 ### Create a demo user + get a JWT (for the curl demo)
 
-```bash
-POOL=$(aws ssm get-parameter --name /gridrisk/cognito-user-pool-id --query Parameter.Value --output text)
-CLIENT=$(aws ssm get-parameter --name /gridrisk/cognito-client-id   --query Parameter.Value --output text)
-API=$(aws ssm get-parameter --name /gridrisk/api-url                --query Parameter.Value --output text)
+The aws CLI is not required. `scripts/demo-user.ts` creates/updates the Cognito demo user via the
+SDK (admin-create-user with `SUPPRESS`, then a permanent password). The user pool client already
+allows `USER_PASSWORD_AUTH`.
 
-aws cognito-idp admin-create-user --user-pool-id "$POOL" --username demo@example.com \
-  --message-action SUPPRESS
-aws cognito-idp admin-set-user-password --user-pool-id "$POOL" --username demo@example.com \
-  --password 'Demo!Passw0rd' --permanent
+```bash
+cd infra
+DEMO_EMAIL=demo@example.com DEMO_PASSWORD='Demo!Passw0rd' npm run demo-user
+```
+
+Then exchange the password for a JWT (this still uses the aws CLI where available; otherwise call
+`InitiateAuth` with the SDK):
+
+```bash
+API=$(node --import tsx infra/scripts/ssm-read.ts /gridrisk/api-url)
+CLIENT=$(node --import tsx infra/scripts/ssm-read.ts /gridrisk/cognito-client-id)
 
 TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
   --client-id "$CLIENT" \

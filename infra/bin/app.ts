@@ -9,7 +9,7 @@ new GridRiskStack(app, 'GridRiskStack', {
     region: process.env.CDK_DEFAULT_REGION ?? process.env.AWS_REGION ?? 'us-east-1',
   },
   // Deploy-time config (see .github/workflows/deploy.yml). Safe local defaults.
-  webOrigin: process.env.WEB_ORIGIN,
-  dispatchEmail: process.env.DISPATCH_EMAIL,
-  bedrockModelId: process.env.BEDROCK_MODEL_ID,
+  webOrigin: process.env.WEB_ORIGIN || undefined,
+  dispatchEmail: process.env.DISPATCH_EMAIL || undefined,
+  bedrockModelId: process.env.BEDROCK_MODEL_ID || undefined,
 });

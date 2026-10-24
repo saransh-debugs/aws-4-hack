@@ -2,9 +2,10 @@
  * A2 – Proposed actions (owner: Bushra). Must stay free of AWS SDK imports: the web app
  * bundles it through ./template.
  *
- * A0 STUB. TODO(Bushra): move the action building out of template.ts into here (template
- * must still equal SAMPLE_ALERT), de-duplicate types, and skip activate_shelter when the
- * engine found no shelter.
+ * The single source of truth for action ids, labels and params. Both ./template (the
+ * deterministic fallback) and ./assemble (the model path) build their actions here.
+ *   - `activate_shelter` is skipped when the engine found no candidate shelter.
+ *   - action types are de-duplicated, preserving first-seen order.
  */
 import type { ActionType, EngineResult, ProposedAction, Shelter, Zone } from '@gridrisk/shared';
 
@@ -17,7 +18,10 @@ export interface ActionContext {
 export function buildProposedActions(types: ActionType[], ctx: ActionContext): ProposedAction[] {
   const { zone, shelters, result } = ctx;
   const shelter = shelters.find((s) => s.id === result.candidateShelterIds[0]);
+  const seen = new Set<ActionType>();
   return types.flatMap((type): ProposedAction[] => {
+    if (seen.has(type)) return [];
+    seen.add(type);
     switch (type) {
       case 'activate_shelter':
         return shelter

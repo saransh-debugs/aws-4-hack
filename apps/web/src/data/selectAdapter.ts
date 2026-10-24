@@ -1,6 +1,7 @@
 import type { DataAdapter, DataMode } from './DataAdapter';
 import { LiveAdapter } from './LiveAdapter';
 import { MockAdapter } from './MockAdapter';
+import { getValidToken } from '../auth/cognito';
 
 export function parseDataMode(value: string | undefined): DataMode {
   return value === 'live' ? 'live' : 'mock';
@@ -12,14 +13,14 @@ export function apiBaseUrl(value: string | undefined = import.meta.env.VITE_API_
 }
 
 /**
- * Picks the adapter from VITE_DATA_MODE (default: mock).
- * TODO(Task 13b): replace the dev token with the Cognito ID token (Amplify Auth).
+ * Picks the adapter from VITE_DATA_MODE (default: mock). In live mode the LiveAdapter reads the
+ * Cognito ID token from sessionStorage on every request (returns null when signed out / expired).
  */
 export function selectAdapter(
   mode: DataMode = parseDataMode(import.meta.env.VITE_DATA_MODE),
 ): DataAdapter {
   if (mode === 'live') {
-    return new LiveAdapter({ baseUrl: apiBaseUrl(), getToken: () => 'dev-token' });
+    return new LiveAdapter({ baseUrl: apiBaseUrl(), getToken: () => getValidToken() });
   }
   return new MockAdapter();
 }

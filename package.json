@@ -24,6 +24,7 @@
     "data:snapshot": "npm run data:snapshot -w @gridrisk/engine",
     "data:print": "npm run data:print -w @gridrisk/engine",
     "engine:analyze": "npm run engine:analyze -w @gridrisk/engine",
+    "agent:local": "npm run local -w @gridrisk/agent --",
     "verify": "(npm run fix || true) && npm run typecheck && npm run test && npm run build",
     "fix": "prettier --write . && eslint . --fix",
     "test:e2e": "playwright test -c e2e/playwright.config.ts"

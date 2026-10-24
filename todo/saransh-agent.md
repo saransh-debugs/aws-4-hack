@@ -115,6 +115,12 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
   - Your engine task already adds the `partial` and `reopened` scenarios; the evals (A3) use them.
 - Tests: each tool's output equals a direct engine call for escalation; unknown tool, unknown
   zone and bad input each return an error.
+- Status:
+  - [x] One zod input schema per tool (optional `zoneId` only for `get_active_events`); the same
+        schema drives `TOOL_SPECS` (via `z.toJSONSchema`, `$schema` dropped) and `executeTool`
+        validation. `check_isolation` uses the zone's correlated closures; `compute_isolation_window`
+        reads `ctx.config` only. Unknown tool / zone / bad input → `{ ok: false }`, never throws.
+        Tests in `test/tools.test.ts`.
 
 ### A2 – Output and grounding (Bushra) · M1 · part of Task 9
 
@@ -134,6 +140,15 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
 - Tests: accepts `SAMPLE_ALERT` and "2 hours" for 120 min; rejects "500 patients", "30 minutes",
   "3 HOURS" and a wrong `isolationWindowMinutes`; the assembled alert parses.
 - Bonus for your UI track: you'll know exactly what `toolTrace` holds when you build the trace panel.
+- Status:
+  - [x] `actions.ts` is the single source of action ids/labels; `template.ts` builds its actions
+        there too (still equals `SAMPLE_ALERT`), both stay SDK-free. `send_alert` → `act-alert-<zoneId>`,
+        types de-duplicated, `activate_shelter` skipped with no shelter.
+  - [x] `assemble.ts` builds `AlertCardData` directly from the `EngineResult` (ids, numbers,
+        related events, status) and keeps the `toolTrace`.
+  - [x] `validate.ts` real, unit-aware `checkGrounding`: every number in title+points must be a
+        grounded count or duration (hour equivalents included), names are masked, and
+        `isolationWindowMinutes` must equal the engine value. Tests in `test/validate.test.ts`.
 
 ### A3 – Converse loop and prompt (Saransh) · M1 · Task 8
 
@@ -159,7 +174,7 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
   - [x] `prompt.ts`, `bedrock.ts` and the loop tests (#4, re-landed in #7)
   - [x] `scripts/stub-model.ts` with `hallucinate`
   - [x] `test/evals.test.ts` with the stub model (calm, partial, escalation and reopened)
-  - [ ] Swap the hand-built partial and reopened events in the evals for
+  - [x] Swap the hand-built partial and reopened events in the evals for
         `buildScenario('partial' | 'reopened')` once Tanisha's engine exports them
   - [x] Real Bedrock eval run (`RUN_BEDROCK=1 BEDROCK_MODEL_ID=… npm test -w @gridrisk/agent`):
         all 4 pass on `us.anthropic.claude-sonnet-4-6` (~9.5 s), `us.anthropic.claude-haiku-4-5-20251001-v1:0`
@@ -189,6 +204,20 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
 - Tests: happy path with a mocked client has a `toolTrace`; fallback on an SDK error, a timeout
   and a made-up number each equal the template output; handler rejects bad input and returns
   `{ alert: null }` for calm.
+- Status:
+  - [x] `runAgent`: `modelId` defaults to env `BEDROCK_MODEL_ID`; a model id with no client
+        lazily creates one `BedrockRuntimeClient` (dynamic import keeps the `template` graph
+        SDK-free); the loop is wrapped in a `deps.timeoutMs ?? BEDROCK_DEFAULTS.timeoutMs` (20 s)
+        `AbortController` mapped to `AgentError('timeout')`; any `AgentError`, schema failure or
+        failed grounding (`AgentError('ungrounded')`) logs via `deps.logger` and returns
+        `buildTemplateAlert` (no `toolTrace`); logs info on the path taken.
+  - [x] `handler.ts`: zod-validates the event, one `BedrockRuntimeClient` per container, returns
+        `{ alert }`; exported as `@gridrisk/agent/handler`.
+  - [x] `scripts/local.ts` + root `npm run agent:local -- <scenario> [--stub] [--hallucinate]`
+        prints `path=bedrock|template|none` and the alert JSON.
+  - [x] Tests in `test/runAgent.test.ts` (`aws-sdk-client-mock`): toolTrace on the happy path;
+        SDK error, timeout and hallucinated number each equal the template; handler rejects bad
+        input and returns `{ alert: null }` for calm.
 
 ## Other tasks (Saransh)
 
@@ -252,10 +281,10 @@ that directory.
 
 - [x] A0 stubs merged, and all four slices can start (#3)
 - [ ] Review Tanisha's A1 PR (`tools.ts`: one zod schema per tool)
-- [ ] Run the evals after each of A1, A2 and A4 merges. A2 adds the real `checkGrounding`, and
+- [x] Run the evals after each of A1, A2 and A4 merges. A2 adds the real `checkGrounding`, and
       the escalation eval must still pass with the stub model
-- [ ] Once A4 merges, update H5 and H9 in `docs/HANDOFFS.md`
-- [ ] Walkthrough: `npm run agent:local -- escalation --stub` (needs A4's script), then each
+- [x] Once A4 merges, update H5 and H9 in `docs/HANDOFFS.md`
+- [x] Walkthrough: `npm run agent:local -- escalation --stub` (needs A4's script), then each
       person explains their slice in about 5 minutes
 
 ## Outbound handoffs
