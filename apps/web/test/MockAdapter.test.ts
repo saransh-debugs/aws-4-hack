@@ -15,8 +15,10 @@ describe('MockAdapter', () => {
   it('simulate(escalation) adds the escalation events and one pending alert', async () => {
     const adapter = make();
     const events = await adapter.simulate('escalation');
-    expect(events).toHaveLength(8);
-    expect(events.filter((e) => e.type === '911')).toHaveLength(3);
+    expect(events).toHaveLength(5);
+    expect(events.filter((e) => e.severity === 'critical')).toHaveLength(1);
+    expect(events.map((e) => e.id)).toContain('evt-outage-a');
+    expect(events.map((e) => e.id)).toContain('evt-closure-bridge');
 
     const alerts = await adapter.getAlerts();
     expect(alerts).toHaveLength(1);

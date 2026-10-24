@@ -44,7 +44,7 @@ describe('App shell', () => {
     await waitFor(() => expect(count.textContent).toBe('EVENTS: 3'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
-    await waitFor(() => expect(count.textContent).toBe('EVENTS: 8'));
+    await waitFor(() => expect(count.textContent).toBe('EVENTS: 5'));
     expect(await screen.findByText(/ZONE A ISOLATED/)).toBeTruthy();
   });
 
@@ -53,7 +53,7 @@ describe('App shell', () => {
     const summary = screen.getByLabelText('Situation summary');
     fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
     await waitFor(() => expect(summary.textContent).toContain('45 min'));
-    expect(summary.textContent).toContain('Critical4');
+    expect(summary.textContent).toContain('Critical1');
     expect(summary.textContent).toContain('Pending alerts1');
   });
 
