@@ -2,6 +2,8 @@ import type { DemoEvent, Shelter } from '@gridrisk/shared';
 import { DemoEventSchema, ShelterSchema } from '@gridrisk/shared';
 
 export const DRIVETEXAS_CONDITIONS_URL = 'https://api.drivetexas.org/api/conditions.geojson';
+export const TRANSTAR_LANE_CLOSURES_RSS_URL =
+  'https://traffic.houstontranstar.org/data/rss/laneclosures_rss.xml';
 export const CENTERPOINT_OUTAGES_URL =
   'https://gis.centerpointenergy.com/arcgis/rest/services/Outage/OUTAGE_TRACKER_OEP_ALL/MapServer/0/query';
 export const FEMA_OPEN_SHELTERS_URL =
@@ -173,6 +175,7 @@ export function normalizeCenterPointOutages(payload: ArcGisFeatureCollection): D
         description:
           customers === null ? description : `${description} (${customers} customers affected)`,
         severity: outageSeverity(attributes),
+        source: 'centerpoint',
         ...(timestamp ? { timestamp } : {}),
       },
     ];
@@ -231,10 +234,65 @@ export function normalizeDriveTexasConditions(payload: GeoJsonFeatureCollection)
             'TxDOT road condition',
         ),
         severity: severityFromRoadProperties(properties),
+        source: 'drivetexas',
         timestamp: typeof properties.updated_at === 'string' ? properties.updated_at : undefined,
       },
     ];
   });
+}
+
+function xmlValue(xml: string, tag: string): string | undefined {
+  const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i'));
+  return match?.[1]
+    ?.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .trim();
+}
+
+/** Normalize Houston TranStar's public lane-closure RSS feed. */
+export function normalizeTranStarLaneClosures(xml: string): DemoEvent[] {
+  return [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].flatMap(([, item], index) => {
+    if (!item) return [];
+    const point = xmlValue(item, 'georss:point') ?? xmlValue(item, 'point');
+    const coordinates = point?.split(/\s+/).map(Number);
+    if (!coordinates || coordinates.length < 2 || !coordinates.every(Number.isFinite)) return [];
+    const [lat, lon] = coordinates;
+    const title = xmlValue(item, 'title') ?? 'Houston TranStar lane closure';
+    const description = xmlValue(item, 'description') ?? title;
+    const timestamp = xmlValue(item, 'pubDate');
+    return [
+      {
+        id: `transtar-${xmlValue(item, 'guid') ?? index}`,
+        type: 'road_closure' as const,
+        lat: lat!,
+        lon: lon!,
+        description: `${title}: ${description}`.slice(0, 500),
+        severity: /closed|flood|blocked/i.test(`${title} ${description}`)
+          ? ('high' as const)
+          : ('low' as const),
+        source: 'houston-transtar',
+        ...(timestamp && !Number.isNaN(Date.parse(timestamp))
+          ? { timestamp: new Date(timestamp).toISOString() }
+          : {}),
+      },
+    ];
+  });
+}
+
+export async function fetchTranStarLaneClosures(
+  url = TRANSTAR_LANE_CLOSURES_RSS_URL,
+  fetchImpl: typeof fetch = fetch,
+): Promise<DemoEvent[]> {
+  const response = await fetchImpl(url, {
+    headers: { Accept: 'application/rss+xml, application/xml' },
+  });
+  if (!response.ok) throw new Error(`Houston TranStar request failed: ${response.status}`);
+  return normalizeTranStarLaneClosures(await response.text());
 }
 
 export async function fetchDriveTexasConditions(

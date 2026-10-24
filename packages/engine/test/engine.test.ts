@@ -30,8 +30,13 @@ import {
   normalizeDriveTexasConditions,
   normalizeFemaOpenShelters,
   normalizeOperationalEvents,
+  normalizeTranStarLaneClosures,
 } from '../src/sources/operational';
 import { fetchSnapshotBundle } from '../src/sources/refresh';
+import {
+  buildDowntownHoustonRegistry,
+  validateOperationalGeography,
+} from '../src/sources/geography';
 
 describe('buildScenario (H2)', () => {
   it('calm returns only calm events', () => {
@@ -277,6 +282,45 @@ describe('source normalizers and ingest', () => {
         status: 'active',
       },
     ]);
+  });
+
+  it('normalizes the approved Houston TranStar RSS road source', () => {
+    const events = normalizeTranStarLaneClosures(`
+      <rss><channel><item>
+        <guid>lane-123</guid>
+        <title>Buffalo Bayou bridge closed</title>
+        <description>Flooding has closed the bridge.</description>
+        <pubDate>Sat, 24 Oct 2026 14:00:00 GMT</pubDate>
+        <georss:point>29.7632 -95.38</georss:point>
+      </item></channel></rss>`);
+    expect(events).toEqual([
+      expect.objectContaining({
+        id: 'transtar-lane-123',
+        source: 'houston-transtar',
+        type: 'road_closure',
+        lat: 29.7632,
+        lon: -95.38,
+        severity: 'high',
+      }),
+    ]);
+  });
+
+  it('validates the first real operating slice before analysis', () => {
+    const registry = buildDowntownHoustonRegistry([
+      {
+        id: 'fema-1',
+        name: 'Verified FEMA receiving site',
+        lat: 29.75,
+        lon: -95.36,
+        capacity: 100,
+        status: 'active',
+      },
+    ]);
+    expect(validateOperationalGeography(registry)).toEqual({ valid: true, errors: [] });
+    expect(registry.operatingAreaId).toBe('houston-downtown-77002-77010');
+    expect(registry.zones).toHaveLength(1);
+    expect(registry.roads).toHaveLength(1);
+    expect(registry.shelters[0]?.id).toBe('fema-1');
   });
 
   it('normalizes active CenterPoint ArcGIS outages and ignores restored records', () => {

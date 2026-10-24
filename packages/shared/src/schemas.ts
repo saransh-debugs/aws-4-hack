@@ -100,6 +100,18 @@ export const MapDataSchema = z.object({
   zones: z.array(ZoneSchema),
   roads: z.array(RoadSegmentSchema),
   shelters: z.array(ShelterSchema),
+  operatingAreaId: z.string().min(1).optional(),
+  operatingAreaName: z.string().min(1).optional(),
+  validatedAt: z.iso.datetime().optional(),
+  validationSources: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        url: z.url(),
+        checkedAt: z.iso.datetime(),
+      }),
+    )
+    .optional(),
 });
 export type MapData = z.infer<typeof MapDataSchema>;
 

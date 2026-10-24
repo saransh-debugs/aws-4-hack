@@ -1,16 +1,20 @@
 import type { DemoEvent } from '@gridrisk/shared';
 import type { MapData, Shelter, SourceHealth, SourceHealthStatus } from '@gridrisk/shared';
-import { ROADS, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
-import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import {
+  DeleteItemCommand,
+  DynamoDBClient,
+  PutItemCommand,
+  ScanCommand,
+} from '@aws-sdk/client-dynamodb';
 import {
   fetchCenterPointOutages,
-  fetchDriveTexasConditions,
   fetchFemaOpenShelters,
   buildSyntheticUtilityOutage,
+  fetchTranStarLaneClosures,
 } from '../sources/operational';
 import { fetchEmpower } from '../sources/empower';
 import { fetchNwsAlerts } from '../sources/nws';
-import { ZONE_A } from '@gridrisk/shared/fixtures';
+import { buildDowntownHoustonRegistry } from '../sources/geography';
 
 /** Small seam around the AWS SDK, so the ingest logic can be tested without AWS credentials. */
 export interface DynamoPutClient {
@@ -51,6 +55,7 @@ function itemFor(event: DemoEvent): Record<string, Attribute> {
     severity: { S: event.severity },
     ...(event.zoneId ? { zoneId: { S: event.zoneId } } : {}),
     ...(event.timestamp ? { timestamp: { S: event.timestamp } } : {}),
+    ...(event.source ? { source: { S: event.source } } : {}),
     ingestedAt: { S: ingestedAt.toISOString() },
     expiresAt: { N: String(expiresAt) },
   };
@@ -98,6 +103,29 @@ function geographyItemFor(mapData: MapData): Record<string, { S: string }> {
     payload: { S: JSON.stringify(mapData) },
     updatedAt: { S: new Date().toISOString() },
   };
+}
+
+async function expireMissingProviderEvents(
+  source: string,
+  activeIds: Set<string>,
+  tableName: string,
+): Promise<void> {
+  const result = await dynamo.send(
+    new ScanCommand({
+      TableName: tableName,
+      FilterExpression: '#source = :source',
+      ExpressionAttributeNames: { '#source': 'source' },
+      ExpressionAttributeValues: { ':source': { S: source } },
+      ProjectionExpression: 'id',
+    }),
+  );
+  const items = (result as { Items?: Array<{ id?: { S?: string } }> }).Items ?? [];
+  for (const item of items) {
+    const id = item.id?.S;
+    if (id && !activeIds.has(id)) {
+      await dynamo.send(new DeleteItemCommand({ TableName: tableName, Key: { id: { S: id } } }));
+    }
+  }
 }
 
 async function writeHealth(
@@ -174,17 +202,6 @@ export async function handler(): Promise<{ count: number }> {
   const healthTableName = process.env.GRIDRISK_HEALTH_TABLE;
   const geographyTableName = process.env.GRIDRISK_GEOGRAPHY_TABLE;
   if (!eventsTableName) throw new Error('GRIDRISK_EVENTS_TABLE is required');
-  if (geographyTableName) {
-    const mapData: MapData = {
-      version: process.env.GRIDRISK_GEOGRAPHY_VERSION ?? 'fixture-2026-10-23',
-      zones: ZONES,
-      roads: ROADS,
-      shelters: SHELTERS,
-    };
-    await dynamo.send(
-      new PutItemCommand({ TableName: geographyTableName, Item: geographyItemFor(mapData) }),
-    );
-  }
   const events: DemoEvent[] = [];
   try {
     const nwsEvents = await fetchNwsAlerts();
@@ -192,32 +209,40 @@ export async function handler(): Promise<{ count: number }> {
     await writeHealth('nws', nwsEvents.length > 0 ? 'healthy' : 'empty', nwsEvents.length, {
       tableName: healthTableName,
     });
+    if (eventsTableName) {
+      await expireMissingProviderEvents(
+        'nws',
+        new Set(nwsEvents.map((event) => event.id)),
+        eventsTableName,
+      );
+    }
   } catch (error) {
     console.error('NWS ingest failed; retaining existing events.', error);
     await writeHealth('nws', 'error', 0, { tableName: healthTableName }, error);
   }
-  if (process.env.DRIVETEXAS_API_KEY) {
-    try {
-      const before = events.length;
-      events.push(...(await fetchDriveTexasConditions(process.env.DRIVETEXAS_API_KEY)));
-      await writeHealth(
-        'drivetexas',
-        events.length - before > 0 ? 'healthy' : 'empty',
-        events.length - before,
-        { tableName: healthTableName },
-      );
-    } catch (error) {
-      console.error('DriveTexas ingest failed; retaining existing events.', error);
-      await writeHealth('drivetexas', 'error', 0, { tableName: healthTableName }, error);
-    }
-  } else {
-    await writeHealth(
-      'drivetexas',
-      'error',
-      0,
-      { tableName: healthTableName },
-      new Error('No approved road-closure provider is configured'),
+  try {
+    const before = events.length;
+    events.push(
+      ...(await fetchTranStarLaneClosures(
+        process.env.GRIDRISK_TRANSTAR_LANE_CLOSURES_URL || undefined,
+      )),
     );
+    await writeHealth(
+      'houston-transtar',
+      events.length - before > 0 ? 'healthy' : 'empty',
+      events.length - before,
+      { tableName: healthTableName },
+    );
+    if (eventsTableName) {
+      await expireMissingProviderEvents(
+        'houston-transtar',
+        new Set(events.slice(before).map((event) => event.id)),
+        eventsTableName,
+      );
+    }
+  } catch (error) {
+    console.error('Houston TranStar ingest failed; retaining existing events.', error);
+    await writeHealth('houston-transtar', 'error', 0, { tableName: healthTableName }, error);
   }
   try {
     const before = events.length;
@@ -230,6 +255,13 @@ export async function handler(): Promise<{ count: number }> {
       events.length - before,
       { tableName: healthTableName },
     );
+    if (eventsTableName) {
+      await expireMissingProviderEvents(
+        'centerpoint',
+        new Set(events.slice(before).map((event) => event.id)),
+        eventsTableName,
+      );
+    }
   } catch (error) {
     console.error('CenterPoint outage ingest failed; retaining existing events.', error);
     await writeHealth('centerpoint', 'error', 0, { tableName: healthTableName }, error);
@@ -243,18 +275,39 @@ export async function handler(): Promise<{ count: number }> {
     tableName: eventsTableName,
     putItemCommand: (input) => new PutItemCommand(input),
   });
+  let currentShelters: Shelter[] = [];
   if (sheltersTableName) {
-    await ingestShelters({
-      fetchShelters: fetchFemaOpenShelters,
-      dynamo,
-      tableName: sheltersTableName,
-      putItemCommand: (input) => new PutItemCommand(input),
-    });
-    await writeHealth('fema-shelters', 'healthy', 0, { tableName: healthTableName });
+    try {
+      currentShelters = await fetchFemaOpenShelters();
+      await ingestShelters({
+        fetchShelters: async () => currentShelters,
+        dynamo,
+        tableName: sheltersTableName,
+        putItemCommand: (input) => new PutItemCommand(input),
+      });
+      await writeHealth(
+        'fema-shelters',
+        currentShelters.length ? 'healthy' : 'empty',
+        currentShelters.length,
+        {
+          tableName: healthTableName,
+        },
+      );
+    } catch (error) {
+      console.error('FEMA shelter ingest failed; retaining existing shelters.', error);
+      await writeHealth('fema-shelters', 'error', 0, { tableName: healthTableName }, error);
+    }
+  }
+  if (geographyTableName && currentShelters.length > 0) {
+    const mapData = buildDowntownHoustonRegistry(currentShelters);
+    await dynamo.send(
+      new PutItemCommand({ TableName: geographyTableName, Item: geographyItemFor(mapData) }),
+    );
   }
   if (snapshotsTableName) {
     try {
-      const empower = await fetchEmpower(ZONE_A.zips);
+      const zips = buildDowntownHoustonRegistry().zones.flatMap((zone) => zone.zips);
+      const empower = await fetchEmpower(zips);
       await dynamo.send(
         new PutItemCommand({
           TableName: snapshotsTableName,

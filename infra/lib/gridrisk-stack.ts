@@ -584,9 +584,12 @@ function handler(event) {
         GRIDRISK_SNAPSHOTS_TABLE: snapshotsTable.tableName,
         GRIDRISK_HEALTH_TABLE: healthTable.tableName,
         GRIDRISK_GEOGRAPHY_TABLE: geographyTable.tableName,
-        GRIDRISK_GEOGRAPHY_VERSION: process.env.GRIDRISK_GEOGRAPHY_VERSION ?? 'fixture-2026-10-23',
+        GRIDRISK_GEOGRAPHY_VERSION:
+          process.env.GRIDRISK_GEOGRAPHY_VERSION ?? 'downtown-houston-77002-77010',
         GRIDRISK_CENTERPOINT_OUTAGES_URL: process.env.GRIDRISK_CENTERPOINT_OUTAGES_URL ?? '',
-        DRIVETEXAS_API_KEY: process.env.DRIVETEXAS_API_KEY ?? '',
+        GRIDRISK_TRANSTAR_LANE_CLOSURES_URL:
+          process.env.GRIDRISK_TRANSTAR_LANE_CLOSURES_URL ??
+          'https://traffic.houstontranstar.org/data/rss/laneclosures_rss.xml',
         GRIDRISK_ALLOW_SYNTHETIC_UTILITY: process.env.GRIDRISK_ALLOW_SYNTHETIC_UTILITY ?? 'false',
         GRIDRISK_SYNTHETIC_ZONE_ID: process.env.GRIDRISK_SYNTHETIC_ZONE_ID ?? 'zone-a',
         GRIDRISK_DEMO_MODE: process.env.GRIDRISK_DEMO_MODE ?? 'false',

@@ -43,6 +43,7 @@ export function normalizeNwsAlerts(payload: NwsCollection): DemoEvent[] {
       lon,
       description: properties.headline ?? properties.description ?? properties.event ?? 'NWS alert',
       severity: severityOf(properties.severity),
+      source: 'nws',
       timestamp: properties.effective ?? properties.sent,
     };
   });
