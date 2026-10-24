@@ -86,7 +86,8 @@ describe('GridRiskStack', () => {
     template.resourceCountIs('AWS::Location::RouteCalculator', 1);
     template.hasResourceProperties('AWS::Location::APIKey', {
       Restrictions: Match.objectLike({
-        AllowReferers: ['https://app.example.com/*'],
+        AllowActions: ['geo-maps:GetStaticMap', 'geo-maps:GetTile'],
+        AllowReferers: Match.arrayWith(['http://localhost:5173/*', 'https://app.example.com/*']),
       }),
     });
   });

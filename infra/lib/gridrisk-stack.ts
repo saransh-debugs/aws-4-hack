@@ -61,9 +61,6 @@ export class GridRiskStack extends Stack {
       .map((o) => o.trim())
       .filter(Boolean);
     const allowedOrigins = Array.from(new Set([LOCAL_ORIGIN, ...configuredOrigins]));
-    // The first configured origin is treated as the "primary" web origin (used for the Location
-    // key referrer that existed before; kept stable to avoid replacing the LocationApiKey).
-    const primaryWebOrigin = configuredOrigins[0] ?? LOCAL_ORIGIN;
 
     // ---------------------------------------------------------------------
     // Task 10: DynamoDB
@@ -373,30 +370,10 @@ export class GridRiskStack extends Stack {
     });
 
     const mapName = `${this.stackName}-map`;
-    const locationMap = new location.CfnMap(this, 'LocationMap', {
+    new location.CfnMap(this, 'LocationMap', {
       mapName,
       configuration: { style: 'VectorEsriDarkGrayCanvas' },
     });
-
-    // NOTE: changing the LocationApiKey previously produced DELETE_FAILED on update, so we keep
-    // this resource's logical id ("LocationApiKey") and its properties stable. The referrer is
-    // derived from the primary web origin exactly as before (single-origin deploys are byte-for-byte
-    // identical), so a normal single-origin deploy does not force a replacement. The CloudFront
-    // domain is not known until the distribution exists and is not added here to avoid churn; the
-    // web app loads map tiles via the key with the web origin as referrer, and the CloudFront
-    // domain shares that origin for API calls only.
-    const referer = `${primaryWebOrigin.replace(/\/+$/, '')}/*`;
-    const locationApiKey = new location.CfnAPIKey(this, 'LocationApiKey', {
-      // "-web-key" is taken by a key orphaned by an earlier failed replacement; don't reuse it.
-      keyName: `${this.stackName}-web-key-v2`,
-      noExpiry: true,
-      restrictions: {
-        allowActions: ['geo:GetMap*'],
-        allowResources: [locationMap.attrArn],
-        allowReferers: [referer],
-      },
-    });
-    locationApiKey.addDependency(locationMap);
 
     // ---------------------------------------------------------------------
     // Task 15: Hosting – private S3 bucket + CloudFront (OAC) for the SPA,
@@ -492,6 +469,20 @@ function handler(event) {
     }
 
     const webUrl = `https://${distribution.distributionDomainName}`;
+
+    // Amazon Location (Maps v2) key for the web map style (geo.ts locationStyleUrl). Referrers:
+    // the configured web origin(s) plus the CloudFront site. Earlier key names ("-web-key",
+    // "-web-key-v2") are orphaned by failed replacements (keys must sit inactive 90 days before
+    // deletion), so this one gets a fresh name.
+    const locationApiKey = new location.CfnAPIKey(this, 'MapsApiKey', {
+      keyName: `${this.stackName}-maps-key`,
+      noExpiry: true,
+      restrictions: {
+        allowActions: ['geo-maps:GetStaticMap', 'geo-maps:GetTile'],
+        allowResources: [`arn:aws:geo-maps:${this.region}::provider/default`],
+        allowReferers: [...allowedOrigins.map((o) => `${o.replace(/\/+$/, '')}/*`), `${webUrl}/*`],
+      },
+    });
 
     // ---------------------------------------------------------------------
     // Task 12: EventBridge Scheduler every 5 min -> ingest Lambda (least privilege)

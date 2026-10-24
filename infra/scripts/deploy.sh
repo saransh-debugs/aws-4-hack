@@ -27,6 +27,11 @@ ssm() {
 echo "==> Reading Cognito config from SSM (region ${AWS_REGION})"
 POOL_ID="$(ssm /gridrisk/cognito-user-pool-id || true)"
 CLIENT_ID="$(ssm /gridrisk/cognito-client-id || true)"
+KEY_NAME="$(ssm /gridrisk/location-api-key-name || true)"
+MAP_KEY=""
+if [[ -n "${KEY_NAME}" ]]; then
+  MAP_KEY="$(node --import tsx "${SCRIPT_DIR}/location-key.ts" "${KEY_NAME}" || true)"
+fi
 
 echo "==> Building apps/web (live mode, same-origin /api)"
 VITE_DATA_MODE=live \
@@ -34,6 +39,7 @@ VITE_API_URL=/api \
 VITE_AWS_REGION="${AWS_REGION}" \
 VITE_COGNITO_USER_POOL_ID="${POOL_ID}" \
 VITE_COGNITO_CLIENT_ID="${CLIENT_ID}" \
+VITE_LOCATION_API_KEY="${MAP_KEY}" \
   npm run build -w @gridrisk/web --prefix "${REPO_ROOT}"
 
 echo "==> Deploying GridRiskStack"

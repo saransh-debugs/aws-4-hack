@@ -182,7 +182,7 @@ handler(event: unknown): Promise<{ alert: AlertCardData | null }>;             /
         Haiku 5.5 is blocked by the account's private marketplace
   - [x] Prompt tuned: all six investigation tools in one parallel turn, then `submit_alert`
         (4 turns down to 2). The loop drops `toolChoice: any` / `temperature` when a model rejects them
-  - [ ] Darsh: set `BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6` for RunAgent and scope
+  - [x] Darsh: set `BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6` for RunAgent and scope
         `bedrock:InvokeModel` to that inference profile plus its foundation-model ARNs
 
 ### A4 – Orchestration, fallback and Lambda (Darsh) · M2 · Task 9 + agent side of Task 14
@@ -265,7 +265,7 @@ that directory.
 
 ### M3
 
-- [ ] **Playwright e2e, part of Task 15** (from Darsh, Darsh reviews the `.github/` change)
+- [x] **Playwright e2e, part of Task 15** (from Darsh, Darsh reviews the `.github/` change)
   - Objective: the demo loop can't silently break.
   - Guidance: mock mode, in CI: calm → Simulate → alert appears → check actions → Approve →
     "DISPATCHED" → Reset. Use roles and labels for selectors, not CSS classes.
@@ -273,14 +273,14 @@ that directory.
   - Status:
     - [x] Playwright set up, `npm run test:e2e`, `e2e` CI job, calm smoke test (#15)
     - [x] Full loop written, gated on the repo variable `E2E_UI_READY=1`
-    - [ ] Turn the loop on: once Bushra's AlertCard (Task 5) is on main, run
+    - [x] Turn the loop on: once Bushra's AlertCard (Task 5) is on main, run
           `E2E_UI_READY=1 npm run test:e2e` locally, then set the repo variable
-    - [ ] Un-`fixme` the Shift+R test once Task 16 lands
+    - [x] Un-`fixme` the Shift+R test once Task 16 lands
 
 ## Coordinator (Saransh)
 
 - [x] A0 stubs merged, and all four slices can start (#3)
-- [ ] Review Tanisha's A1 PR (`tools.ts`: one zod schema per tool)
+- [x] A1 (`tools.ts`: one zod schema per tool) reviewed and merged in #18
 - [x] Run the evals after each of A1, A2 and A4 merges. A2 adds the real `checkGrounding`, and
       the escalation eval must still pass with the stub model
 - [x] Once A4 merges, update H5 and H9 in `docs/HANDOFFS.md`
