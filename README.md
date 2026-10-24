@@ -136,10 +136,12 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" "$API/simulate/reset" | jq '.e
 ### Map status
 
 The CDK stack provisions an Amazon Location map, a referrer-restricted API key, and a route calculator.
-The frontend does not consume those resources yet: `apps/web/src/App.tsx` still renders the
-`MapComponent (Task 3)` placeholder, and event selection does not fly the map to an event. Until Task 3
-is implemented, the app remains a dashboard shell with an event feed. The intended fallback is the
-bundled offline dark style when `VITE_LOCATION_API_KEY` is empty.
+The frontend map is implemented in `apps/web/src/components/MapComponent.tsx`: it renders event,
+zone, road, and shelter layers, and event-feed selection flies the map to the selected event. The
+event feed and map load through the shared `DataAdapter`; `VITE_DATA_MODE=mock` uses deterministic
+engine fixtures, while `VITE_DATA_MODE=live` calls the deployed API. Zone, road, and shelter layers
+remain fixture-backed until those resources are exposed by the live API. The bundled offline dark
+style is used when `VITE_LOCATION_API_KEY` or `VITE_LOCATION_MAP_NAME` is empty.
 
 ### Mock / offline mode
 

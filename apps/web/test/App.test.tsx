@@ -21,9 +21,9 @@ describe('App shell', () => {
     }
   });
 
-  it('lists the calm events in the feed and selects one on click', () => {
+  it('lists the calm events in the feed and selects one on click', async () => {
     render(<App />);
-    const item = screen.getByRole('button', { name: /tree down on elm st/i });
+    const item = await screen.findByRole('button', { name: /tree down on elm st/i });
     expect(screen.getAllByRole('button', { pressed: false })).toHaveLength(3);
     fireEvent.click(item);
     expect(item.getAttribute('aria-pressed')).toBe('true');
@@ -36,8 +36,10 @@ describe('selectAdapter', () => {
     expect(parseDataMode('live')).toBe('live');
   });
 
-  it('placeholder adapter rejects until Task 2 lands', async () => {
-    await expect(selectAdapter('mock').getEvents()).rejects.toThrow(/not implemented/);
+  it('mock mode returns the deterministic calm baseline', async () => {
+    const events = await selectAdapter('mock').getEvents();
+    expect(events).toHaveLength(3);
+    expect(await selectAdapter('mock').getAlerts()).toEqual([]);
   });
 
   it('live mode returns a LiveAdapter, defaulting to same-origin /api', () => {

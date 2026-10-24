@@ -62,7 +62,11 @@ It consumes the same `DemoEvent`, `Zone`, `RoadSegment`, and `Shelter` objects u
 - without those values, the map uses the bundled offline dark style and still renders the data layers.
 
 This visual layer does not change the deterministic engine or provider data. It is a read-only view of
-the current adapter/fixture data. Real API event loading and alert controls remain separate UI work.
+the current adapter data. In mock mode, `MockAdapter` uses deterministic engine fixtures in memory;
+in live mode, `LiveAdapter` loads events and alerts from the deployed API. The current API contract
+does not return zones, road segments, or shelters, so those three map layers remain fixture-backed
+until the operational snapshot API exposes them. Alert approval is available through the adapter
+contract, but the dashboard's full alert-card controls are still a separate UI task.
 
 ## Provider sources
 
