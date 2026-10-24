@@ -38,3 +38,27 @@ jobs:
         run: npm run lint || echo "::warning title=Lint::ESLint found issues. Run 'npm run fix' locally."
       - name: Format (warning only)
         run: npm run format:check || echo "::warning title=Format::Prettier found unformatted files. Run 'npm run fix' locally."
+
+  # Task 15: mock-mode Playwright e2e (offline, no AWS). The full demo loop is gated on the repo
+  # variable E2E_UI_READY=1; until then only the smoke test runs.
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      E2E_UI_READY: ${{ vars.E2E_UI_READY }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

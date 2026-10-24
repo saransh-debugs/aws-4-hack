@@ -25,10 +25,12 @@
     "data:print": "npm run data:print -w @gridrisk/engine",
     "engine:analyze": "npm run engine:analyze -w @gridrisk/engine",
     "verify": "(npm run fix || true) && npm run typecheck && npm run test && npm run build",
-    "fix": "prettier --write . && eslint . --fix"
+    "fix": "prettier --write . && eslint . --fix",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
     "@types/node": "22.20.5",
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
