@@ -5,7 +5,11 @@ import { DataAdapterError } from './data/errors';
 import { selectAdapter } from './data/selectAdapter';
 import { useRefresh } from './data/useGridData';
 import { getValidToken, loadSession, signOut } from './auth/cognito';
+import { analyze } from '@gridrisk/engine';
+import { SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
+import { AgentInvestigating } from './components/AgentInvestigating';
 import { AlertCard } from './components/AlertCard';
+import { useRecentArrivals } from './data/useRecentArrivals';
 import { DevToolbar } from './components/DevToolbar';
 import { EventFeed } from './components/EventFeed';
 import { MapBoundary } from './components/MapBoundary';
@@ -32,6 +36,15 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
   const selectedEventId = useGridStore((s) => s.selectedEventId);
   const selectEvent = useGridStore((s) => s.selectEvent);
   const [offline, setOffline] = useState(false);
+  const newIds = useRecentArrivals();
+
+  // Zones the engine sees as cut off whose alert hasn't arrived yet: the agent is working on them.
+  const investigating = useMemo(() => {
+    const alerted = new Set(alerts.map((a) => a.zoneId));
+    return analyze(events, ZONES, { shelters: SHELTERS })
+      .filter((r) => r.isolated && !alerted.has(r.zoneId))
+      .flatMap((r) => ZONES.filter((z) => z.id === r.zoneId));
+  }, [events, alerts]);
 
   // Replaces the old refresh().catch TODO: surface fetch failures in a banner, clear on success.
   // A 401 in live mode clears the token and returns to the sign-in screen.
@@ -127,6 +140,7 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
         >
           <EventFeed
             events={events}
+            newIds={newIds}
             selectedEventId={selectedEventId}
             onSelect={(e) => selectEvent(e.id)}
           />
@@ -142,7 +156,10 @@ function Dashboard({ onUnauthenticated }: { onUnauthenticated: () => void }) {
           aria-label="Alerts"
           className="min-h-0 space-y-3 overflow-y-auto border-l border-slate-700 p-4"
         >
-          {alerts.length === 0 ? (
+          {investigating.map((z) => (
+            <AgentInvestigating key={`investigating-${z.id}`} zoneName={z.name} />
+          ))}
+          {alerts.length === 0 && investigating.length === 0 ? (
             <p className="text-sm text-slate-300">No active alerts.</p>
           ) : (
             alerts.map((a) => (

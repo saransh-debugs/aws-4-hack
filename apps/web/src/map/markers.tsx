@@ -16,17 +16,19 @@ const TYPE: Record<EventType, { icon: LucideIcon; label: string }> = {
 export function EventPin({
   event,
   selected,
+  isNew = false,
   onSelect,
 }: {
   event: DemoEvent;
   selected: boolean;
+  isNew?: boolean;
   onSelect: () => void;
 }) {
   const { icon: Icon, label } = TYPE[event.type];
   return (
     <button
       type="button"
-      className={`map-pin map-pin--${event.type} map-pin--${event.severity}${selected ? ' map-pin--selected' : ''}`}
+      className={`map-pin map-pin--${event.type} map-pin--${event.severity}${selected ? ' map-pin--selected' : ''}${isNew ? ' map-pin--new' : ''}`}
       aria-label={`${event.severity} ${label.toLowerCase()}: ${event.description}`}
       aria-pressed={selected}
       title={`${event.severity.toUpperCase()} · ${event.description}`}

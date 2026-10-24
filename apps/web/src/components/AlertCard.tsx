@@ -169,7 +169,7 @@ export function AlertCard({ alert, onApproved, clock }: AlertCardProps) {
         </p>
       )}
 
-      <ToolTracePanel trace={alert.toolTrace} />
+      <ToolTracePanel alert={alert} />
     </motion.article>
   );
 }

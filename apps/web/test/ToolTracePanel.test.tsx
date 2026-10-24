@@ -1,140 +1,151 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AlertCardDataSchema, type ToolTraceEntry } from '@gridrisk/shared';
-import { SAMPLE_ALERT } from '@gridrisk/shared/fixtures';
-import { summarizeInput, summarizeOutput, ToolTracePanel } from '../src/components/ToolTracePanel';
+import type { AlertCardData } from '@gridrisk/shared';
+import { ROADS, SAMPLE_ALERT, SHELTERS, ZONES } from '@gridrisk/shared/fixtures';
+import { analyze, buildScenario } from '@gridrisk/engine';
+import { ToolTracePanel } from '../src/components/ToolTracePanel';
+import { explainTrace, traceFromEngine, type Part } from '../src/components/explainTrace';
+import { useGridStore } from '../src/store';
 
-afterEach(cleanup);
+const events = buildScenario('escalation');
+const result = analyze(events, ZONES, { shelters: SHELTERS }).find((r) => r.zoneId === 'zone-a')!;
+const ctx = { zones: ZONES, roads: ROADS, shelters: SHELTERS, events };
 
-/** Shaped like the escalation trace the A3 loop records with the stub model. */
-const TRACE: ToolTraceEntry[] = [
-  {
-    tool: 'correlate_zone',
-    input: { zoneId: 'zone-a' },
-    output: {
-      zoneId: 'zone-a',
-      outageEventIds: ['evt-outage-a'],
-      closureEventIds: ['evt-closure-bridge'],
-      emergencyEventIds: ['evt-911-1', 'evt-911-2', 'evt-911-3'],
-    },
-  },
-  {
-    tool: 'check_isolation',
-    input: { zoneId: 'zone-a' },
-    output: {
-      isolated: true,
-      closedAccessRoadIds: ['road-bridge'],
-    },
-  },
-  {
-    tool: 'get_dependent_patients',
-    input: { zoneId: 'zone-a' },
-    output: {
-      zoneId: 'zone-a',
-      dependentPatients: 340,
-    },
-  },
-  {
-    tool: 'compute_isolation_window',
-    input: { zoneId: 'zone-a' },
-    output: {
-      avgBackupMinutes: 120,
-      estimatedResponseMinutes: 75,
-      isolationWindowMinutes: 45,
-    },
-  },
-];
+/** An alert worded the way real Claude wrote it, with the agent's trace. */
+const AGENT_ALERT: AlertCardData = {
+  ...SAMPLE_ALERT,
+  points: [
+    '56 electricity-dependent patients are currently affected by the outage.',
+    'Only 45 minutes remain in the isolation window, with an average backup of just 2 hours.',
+    'Shelter B is on standby with capacity for 200 evacuees.',
+  ],
+  toolTrace: traceFromEngine(result, events, SHELTERS),
+};
 
-const toggle = () => screen.getByRole('button', { name: /how the agent got here/i });
-const steps = () =>
-  within(screen.getByRole('list', { name: /tool calls/i })).getAllByRole('listitem');
+const textOf = (parts: Part[]) =>
+  parts.map((p) => (p.kind === 'cite' ? p.n.map((n) => `[${n}]`).join('') : p.text)).join('');
 
-describe('summarizeInput', () => {
-  it('lists scalar fields', () => {
-    expect(summarizeInput({ zoneId: 'zone-a' })).toBe('zoneId=zone-a');
-  });
-  it('reads "no input" for empty or missing input', () => {
-    expect(summarizeInput({})).toBe('no input');
-    expect(summarizeInput(undefined)).toBe('no input');
-  });
-});
+describe('explainTrace', () => {
+  const ex = explainTrace(AGENT_ALERT, ctx);
+  const sourceNamed = (origin: string) => ex.citations.find((c) => c.origin === origin)!.n;
 
-describe('summarizeOutput', () => {
-  it('keeps numbers and booleans and counts arrays', () => {
-    expect(summarizeOutput(TRACE[1]!.output)).toEqual([
-      { label: 'isolated', value: 'true' },
-      { label: 'closedAccessRoadIds', value: '1' },
+  it('describes each check in plain English, in order', () => {
+    expect(ex.source).toBe('agent');
+    expect(ex.steps.map((s) => s.title)).toEqual([
+      'Read the live event feed',
+      'Linked events to the zone',
+      'Checked every road into the zone',
+      'Counted patients who depend on power',
+      'Looked for a shelter outside the zone',
+      'Worked out the time left',
     ]);
-    expect(summarizeOutput(TRACE[3]!.output)).toContainEqual({
-      label: 'isolationWindowMinutes',
-      value: '45',
-    });
+    const isolation = textOf(ex.steps[2]!.parts);
+    expect(isolation).toMatch(
+      /Buffalo Bayou Access Bridge is closed\[\d\]\. It is the only road in, so Zone A is cut off\./,
+    );
+    expect(textOf(ex.steps[0]!.parts)).toContain(
+      'including a critical power outage and a high-severity road closure',
+    );
+    expect(textOf(ex.steps[3]!.parts)).toContain(
+      '56 people in Zone A rely on powered medical equipment',
+    );
+    expect(textOf(ex.steps[5]!.parts)).toMatch(/120 min\[\d\].*75 min\[\d\].*leaves 45 minutes/);
   });
-  it('turns a failed call into one error field', () => {
-    expect(summarizeOutput({ error: 'Unknown zone: zone-z' })).toEqual([
-      { label: 'error', value: 'Unknown zone: zone-z' },
-    ]);
+
+  it('never shows code names (snake_case tools, camelCase fields, ids)', () => {
+    const all = [
+      ...ex.steps.flatMap((s) => [s.title, textOf(s.parts)]),
+      ...ex.citations.map((c) => `${c.origin} ${c.detail}`),
+    ].join(' ');
+    expect(all).not.toMatch(/[a-z]+_[a-z]+/);
+    expect(all.replaceAll('emPOWER', '')).not.toMatch(/\b[a-z]+[A-Z][a-zA-Z]+\b/);
+    expect(all).not.toMatch(/zone-a|evt-|road-bridge/);
   });
-  it('caps the number of fields', () => {
-    expect(summarizeOutput({ a: 1, b: 2, c: 3, d: 4, e: 5 })).toHaveLength(4);
+
+  it('cites every number in the alert to its source', () => {
+    const [patients, time, shelter] = ex.points.map(textOf);
+    expect(patients).toContain(`56[${sourceNamed('HHS emPOWER')}]`);
+    const [backup, response] = ex.citations
+      .filter((c) => c.origin === 'Planning assumption')
+      .map((c) => c.n);
+    expect(time).toContain(`45[${backup}][${response}] minutes`);
+    expect(time).toContain(`2[${backup}] hours`);
+    expect(shelter).toContain(`200[${sourceNamed('Shelter registry')}]`);
+  });
+
+  it('lists sources people recognize', () => {
+    expect(ex.citations.map((c) => c.origin)).toEqual(
+      expect.arrayContaining([
+        'Event feed',
+        'Road network',
+        'HHS emPOWER',
+        'Shelter registry',
+        'Planning assumption',
+      ]),
+    );
+    expect(ex.citations.find((c) => c.origin === 'HHS emPOWER')?.detail).toContain(
+      'ZIP 77002 and 77010',
+    );
+  });
+
+  it('explains a template alert from the engine result', () => {
+    const t = explainTrace(SAMPLE_ALERT, ctx, result);
+    expect(t.source).toBe('engine');
+    expect(t.steps).toHaveLength(6);
+  });
+
+  it('reports a failed check in words', () => {
+    const failed = explainTrace(
+      {
+        ...AGENT_ALERT,
+        toolTrace: [{ tool: 'check_isolation', input: {}, output: { error: 'Unknown zone' } }],
+      },
+      ctx,
+    );
+    expect(failed.steps[0]?.failed).toBe(true);
+    expect(textOf(failed.steps[0]!.parts)).toContain('This check failed');
   });
 });
 
 describe('ToolTracePanel', () => {
-  it('is hidden for a template alert (no trace)', () => {
-    const { container } = render(<ToolTracePanel trace={SAMPLE_ALERT.toolTrace} />);
-    expect(SAMPLE_ALERT.toolTrace).toBeUndefined();
-    expect(container.innerHTML).toBe('');
+  beforeEach(() => useGridStore.setState({ events }));
+  afterEach(() => {
+    cleanup();
+    useGridStore.setState({ events: [] });
   });
+  const toggle = () => screen.getByRole('button', { name: /how the agent got here/i });
 
-  it('is hidden for an empty trace', () => {
-    const { container } = render(<ToolTracePanel trace={[]} />);
-    expect(container.innerHTML).toBe('');
-  });
-
-  it('starts collapsed and shows the step count', () => {
-    render(<ToolTracePanel trace={TRACE} />);
-    expect(toggle().getAttribute('aria-expanded')).toBe('false');
-    expect(toggle().textContent).toContain('4 steps');
-    expect(screen.queryByRole('list', { name: /tool calls/i })).toBeNull();
-  });
-
-  it('renders the entries in call order with their key numbers', async () => {
-    render(<ToolTracePanel trace={TRACE} />);
-    await userEvent.click(toggle());
-    const items = steps();
-    expect(items.map((li) => li.textContent)).toEqual([
-      expect.stringContaining('correlate_zone'),
-      expect.stringContaining('check_isolation'),
-      expect.stringContaining('get_dependent_patients'),
-      expect.stringContaining('compute_isolation_window'),
-    ]);
-    expect(items[0]!.textContent).toContain('(zoneId=zone-a)');
-    expect(items[0]!.textContent).toContain('emergencyEventIds3');
-    expect(items[2]!.textContent).toContain('dependentPatients340');
-    expect(items[3]!.textContent).toContain('isolationWindowMinutes45');
-  });
-
-  it('works with an AlertCardData that has a trace', async () => {
-    const alert = AlertCardDataSchema.parse({ ...SAMPLE_ALERT, toolTrace: TRACE });
-    render(<ToolTracePanel trace={alert.toolTrace} defaultOpen />);
-    expect(steps()).toHaveLength(4);
-  });
-
-  it('toggles with the keyboard', async () => {
+  it('starts collapsed and opens with the keyboard', async () => {
     const user = userEvent.setup();
-    render(<ToolTracePanel trace={TRACE} />);
-
+    render(<ToolTracePanel alert={AGENT_ALERT} />);
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    expect(toggle().textContent).toContain('6 checks');
     await user.tab();
-    expect(document.activeElement).toBe(toggle());
     await user.keyboard('{Enter}');
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('list', { name: /tool calls/i }).id).toBe(
-      toggle().getAttribute('aria-controls'),
-    );
+    const checks = within(screen.getByRole('list', { name: /checks/i })).getAllByRole('listitem');
+    expect(checks).toHaveLength(6);
     await user.keyboard(' ');
-    expect(toggle().getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByRole('list', { name: /tool calls/i })).toBeNull();
+    expect(screen.queryByRole('list', { name: /checks/i })).toBeNull();
+  });
+
+  it('citation links point at the matching source', () => {
+    render(<ToolTracePanel alert={AGENT_ALERT} defaultOpen />);
+    const link = screen.getAllByRole('link', { name: 'Source 1' })[0]!;
+    const target = document.getElementById(link.getAttribute('href')!.slice(1));
+    expect(target?.textContent).toContain('[1]');
+    expect(screen.getByRole('list', { name: 'Sources' })).toBeTruthy();
+  });
+
+  it('labels template alerts honestly', () => {
+    render(<ToolTracePanel alert={SAMPLE_ALERT} defaultOpen />);
+    expect(screen.getByText(/Claude was not used/)).toBeTruthy();
+  });
+
+  it('renders nothing when there is nothing to explain', () => {
+    useGridStore.setState({ events: [] });
+    const { container } = render(<ToolTracePanel alert={{ ...SAMPLE_ALERT, zoneId: 'zone-x' }} />);
+    expect(container.innerHTML).toBe('');
   });
 });

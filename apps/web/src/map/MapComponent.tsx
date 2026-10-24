@@ -34,6 +34,7 @@ import { fetchEvacuationRoute } from './routes';
 import { DroneMarker, EventPin, ShelterPin, ZoneLabel } from './markers';
 import { MapControls } from './MapControls';
 import { MapLegend } from './MapLegend';
+import { useRecentArrivals } from '../data/useRecentArrivals';
 
 const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' &&
@@ -58,6 +59,7 @@ export default function MapComponent() {
   const alerts = useGridStore((s) => s.alerts);
   const selectedEventId = useGridStore((s) => s.selectedEventId);
   const selectEvent = useGridStore((s) => s.selectEvent);
+  const newIds = useRecentArrivals();
   const mapRef = useRef<MapRef>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [basemap, setBasemap] = useState<Basemap>('streets');
@@ -336,6 +338,7 @@ export default function MapComponent() {
             <EventPin
               event={e}
               selected={e.id === selectedEventId}
+              isNew={newIds.has(e.id)}
               onSelect={() => selectEvent(e.id)}
             />
           </Marker>
