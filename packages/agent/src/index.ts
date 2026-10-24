@@ -5,4 +5,5 @@ export * from './submit';
 export * from './assemble';
 export * from './validate';
 export * from './tools';
+export * from './prompt';
 export * from './bedrock';
