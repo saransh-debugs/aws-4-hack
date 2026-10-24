@@ -9,9 +9,20 @@ export const handler = withErrorHandling(
   async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
     if (!isAuthenticated(event)) return fail('UNAUTHENTICATED', 'Missing or invalid token');
     const result = await ddb.send(new ScanCommand({ TableName: HEALTH_TABLE() }));
+    const now = Date.now();
     const health = (result.Items ?? []).flatMap((item) => {
       const parsed = SourceHealthSchema.safeParse(item);
-      return parsed.success ? [parsed.data] : [];
+      if (!parsed.success) return [];
+      const ageMinutes = (now - Date.parse(parsed.data.fetchedAt)) / 60_000;
+      return [
+        {
+          ...parsed.data,
+          status:
+            parsed.data.status === 'healthy' && ageMinutes > parsed.data.maxAgeMinutes
+              ? 'stale'
+              : parsed.data.status,
+        },
+      ];
     });
     return ok({ health: health as SourceHealth[] });
   },

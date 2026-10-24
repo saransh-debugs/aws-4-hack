@@ -17,8 +17,10 @@ export interface DynamoPutClient {
   send(command: unknown): Promise<unknown>;
 }
 
+type Attribute = { S: string } | { N: string };
+
 export interface PutItemCommandFactory {
-  (input: { TableName: string; Item: Record<string, { S: string }> }): unknown;
+  (input: { TableName: string; Item: Record<string, Attribute> }): unknown;
 }
 
 export interface IngestDependencies {
@@ -37,7 +39,9 @@ export interface ShelterIngestDependencies {
   log?: (message: string, details?: unknown) => void;
 }
 
-function itemFor(event: DemoEvent): Record<string, { S: string }> {
+function itemFor(event: DemoEvent): Record<string, Attribute> {
+  const ingestedAt = new Date();
+  const expiresAt = Math.floor(ingestedAt.getTime() / 1000) + 30 * 60;
   return {
     id: { S: event.id },
     type: { S: event.type },
@@ -47,6 +51,8 @@ function itemFor(event: DemoEvent): Record<string, { S: string }> {
     severity: { S: event.severity },
     ...(event.zoneId ? { zoneId: { S: event.zoneId } } : {}),
     ...(event.timestamp ? { timestamp: { S: event.timestamp } } : {}),
+    ingestedAt: { S: ingestedAt.toISOString() },
+    expiresAt: { N: String(expiresAt) },
   };
 }
 
@@ -204,6 +210,14 @@ export async function handler(): Promise<{ count: number }> {
       console.error('DriveTexas ingest failed; retaining existing events.', error);
       await writeHealth('drivetexas', 'error', 0, { tableName: healthTableName }, error);
     }
+  } else {
+    await writeHealth(
+      'drivetexas',
+      'error',
+      0,
+      { tableName: healthTableName },
+      new Error('No approved road-closure provider is configured'),
+    );
   }
   try {
     const before = events.length;

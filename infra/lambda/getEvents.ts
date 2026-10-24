@@ -12,7 +12,10 @@ export const handler = withErrorHandling(
     if (!isAuthenticated(event)) return fail('UNAUTHENTICATED', 'Missing or invalid token');
 
     const res = await ddb.send(new ScanCommand({ TableName: EVENTS_TABLE() }));
-    const events = (res.Items ?? []) as DemoEvent[];
+    const now = Math.floor(Date.now() / 1000);
+    const events = (res.Items ?? []).filter(
+      (item) => typeof item.expiresAt !== 'number' || item.expiresAt > now,
+    ) as DemoEvent[];
     return ok({ events });
   },
 );
