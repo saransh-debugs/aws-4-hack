@@ -6,3 +6,4 @@ export * from './sources';
 export * from './ingest';
 export * from './dataQuality';
 export * from './freshness';
+export * from './evaluation';
